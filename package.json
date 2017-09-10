@@ -1,0 +1,13 @@
+{
+  "name" : "starfall-ae",
+  "description" : "The space game",
+  "version" : "0.0.1",
+  "private" : true,
+  "dependencies": {
+    "uglify-js": "2.2.3",
+    "express": "3.0.6",
+    "cheerio": "0.10.5",
+    "socket.io" : ">0.9.13"
+  },
+  "main": "server"
+}
