@@ -23,7 +23,7 @@ $('body').append('<script>'+loader+'</script>');
 fs.writeFileSync('out/index.html', $.html(), 'utf8');
 
 // copy the logo image.
-copy('out/logo.png', 'web/logo.png');
+copy('out/esme.png', 'web/esme.png');
 
 // read and minify shaders.
 var shaders = 'var ShaderLibrary='+JSON.stringify({

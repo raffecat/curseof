@@ -30,6 +30,7 @@ function renderEnts(ents, gl) {
   for (var i=0; i<ents.length; i++) {
     var ent = ents[i];
     var frame = ent.frames[ent.index];
+    // all triangles for all quads/shapes in one frame are batched together.
     gl.drawRangeElements(gl.TRIANGLES, frame.firstIdx, frame.lastIdx, frame.numIdx, gl.UNSIGNED_SHORT, frame.idxOfs);
   }
 }

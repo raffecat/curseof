@@ -1,5 +1,9 @@
+function status(t) {
+  document.getElementById('p').firstChild.nodeValue = t;
+}
+
 // Set Error 1 message in case of script error below.
-document.getElementById('p').firstChild.nodeValue = 'Error 1';
+status('Crashed!');
 
 function loadScript( url, callback ) {
   // asynchronous script loader with retry.
@@ -21,9 +25,9 @@ loadScript( ioHost + "/socket.io/socket.io.js", scriptLoaded );
 function scriptLoaded() {
   var socket = io.connect(ioHost);
   var state = { w: socket };
-  socket.on('z', function (data) { var fn = Function('G',data)(state); });
+  socket.on('z', function (data) { var fn = Function('GS',data)(state); });
   socket.emit('init',{});
 }
 
 // All looks good, started connecting.
-document.getElementById('p').firstChild.nodeValue = 'Connecting...';
+status('Connecting...');

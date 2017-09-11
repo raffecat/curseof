@@ -1,0 +1,2 @@
+#!/bin/bash
+PYTHONPATH=`pwd`/pgu-0.16:$PYTHONPATH python ./pgu-0.16/scripts/leveledit $1 tiles.bmp codes.bmp 32 32 --sw 1440 --sh 810

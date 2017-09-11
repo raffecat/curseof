@@ -191,9 +191,10 @@ function GLRenderer() {
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(samplerAttribute, 0);
 
-    // FIXME: premultiplied alpha (MUST make non-standard PNG images)
-    // -> gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // using premultiplied alpha.
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, 1);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.disable(gl.BLEND);
 
     // render state.
 
@@ -301,9 +302,6 @@ function GLRenderer() {
     // return a wrapper object that manages the GL texture.
     var data = img.data;
     var wrap = img.wrap;
-    var subs = [];
-
-    // TODO: gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 
     function update(img) {
       if (img) {
@@ -331,33 +329,9 @@ function GLRenderer() {
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
         }
-        for (var i=0; i<subs.length; i++) {
-          subs[i].t = tex._t;
-        }
       } else {
         tex._t = null;
-        for (var i=0; i<subs.length; i++) {
-          subs[i].t = null;
-        }
       }
-    }
-
-    function sub(left, top, w, h, opaque) {
-      if (!tex._t) { trace("should not happen unless context is lost"); }
-      var sub = {
-        _t: tex._t,
-        width: w,
-        height: h,
-        opaque: opaque,
-        uv: new FloatArray([
-          (left+eps) / tex.width,   (top+h-eps) / tex.height,
-          (left+w-eps) / tex.width, (top+h-eps) / tex.height,
-          (left+eps) / tex.width,   (top+eps) / tex.height,
-          (left+w-eps) / tex.width, (top+eps) / tex.height
-        ])
-      };
-      subs.push(sub);
-      return sub;
     }
 
     var tex = {
@@ -365,8 +339,6 @@ function GLRenderer() {
       width: img.width,
       height: img.height,
       opaque: img.opaque || false,
-      uv: new FloatArray(img.uv || wholeTexture),
-      sub: sub,
       update: update
     };
 
@@ -385,16 +357,27 @@ function GLRenderer() {
     var vertBuf, indicesBuf;
     var numInds = 0;
 
-    function update() {
-      if (numInds) {
+    function update(verts, inds) {
+      if (verts) {
         gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, pts);
-
-        trace("Geometry update");
-
-        //gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuf);
-        //gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, indices);
-        //numInds = indices.length;
+        if (pts && pts.length >= verts.length) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, verts);
+        } else {
+          // must reallocate the vertex buffer.
+          gl.bufferData(gl.ARRAY_BUFFER, verts, dynamicVerts ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW);
+        }
+        pts = verts; // for bind()
+      }
+      if (inds) {
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuf);
+        if (indices && indices.length >= inds.length) {
+          gl.bufferSubData(gl.ELEMENT_ARRAY_BUFFER, 0, inds);
+        } else {
+          // must reallocate the element array.
+          gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, inds, dynamicInds ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW);
+        }
+        indices = inds; // for bind()
+        numInds = inds.length;
       }
     }
 
@@ -402,21 +385,22 @@ function GLRenderer() {
       if (gl) {
         vertBuf = gl.createBuffer();
         indicesBuf = gl.createBuffer();
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
-        gl.bufferData(gl.ARRAY_BUFFER, pts, dynamicVerts ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW);
-
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuf);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, dynamicInds ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW);
-
-        numInds = indices.length;
+        if (pts) {
+          gl.bindBuffer(gl.ARRAY_BUFFER, vertBuf);
+          gl.bufferData(gl.ARRAY_BUFFER, pts, dynamicVerts ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW);
+        }
+        if (indices) {
+          gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indicesBuf);
+          gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, indices, dynamicInds ? gl.DYNAMIC_DRAW : gl.STATIC_DRAW);
+          numInds = indices.length;
+        }
       } else {
         vertBuf = coordBuf = indicesBuf = null;
         numInds = 0;
       }
     }
 
-    function draw(tex) {
+    function draw(tex, iofs, inum) {
       if (!numInds) return;
 
       //trace("draw", numInds, tex._t);
@@ -432,6 +416,7 @@ function GLRenderer() {
         if (blendState !== needTrans) {
           blendState = needTrans;
           if (blendState) {
+            gl.enable(gl.BLEND);
           } else {
             gl.disable(gl.BLEND);
           }
@@ -445,7 +430,9 @@ function GLRenderer() {
       gl.vertexAttribPointer(vertexPositionAttribute, 2, gl.FLOAT, false, 4*4, 0); // 4 floats, offset 0
       gl.vertexAttribPointer(textureCoordAttribute, 2, gl.FLOAT, false, 4*4, 2*4); // 4 floats, offset 2
 
-      gl.drawElements(gl.TRIANGLES, numInds, gl.UNSIGNED_SHORT, 0);
+      if (iofs == null) { iofs = 0; inum = numInds; }
+
+      gl.drawElements(gl.TRIANGLES, inum, gl.UNSIGNED_SHORT, iofs);
       drawCalls++;
       if (blendState) blendCalls++;
     }
