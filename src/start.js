@@ -24,6 +24,8 @@ function initGame() {
   // rendering.
 
   var ready = false;
+  var movers = [];
+  var lines = [];
   var sprites = [];
   var panX=0, panY=0, spd = 1;
   var loadLatch=false, levelNum=0;
@@ -51,6 +53,12 @@ function initGame() {
     cameraTransform[12] = Math.floor(panX);
     cameraTransform[13] = Math.floor(panY);
 
+    // update all movers.
+    for (var i=0; i<movers.length; i++) {
+      var s = movers[i];
+      s.update(s, dt);
+    }
+
     // animate all sprites.
     animateEnts(sprites, dt);
 
@@ -58,9 +66,16 @@ function initGame() {
     renderer.setViewMatrix(cameraTransform);
     roomGeom.draw(tileImg.texture);
 
+    // render all lines (in world space)
+    for (var i=0; i<lines.length; i++) {
+      var s = lines[i];
+      s.geom.draw(s.image.texture, 0, 6);
+    }
+
     // render all sprites.
     for (var i=0; i<sprites.length; i++) {
       var s = sprites[i];
+      spriteTransform[0] = (s.flip ? -1 : 1);
       spriteTransform[12] = cameraTransform[12] + s.x;
       spriteTransform[13] = cameraTransform[13] + s.y;
       renderer.setViewMatrix(spriteTransform);
@@ -116,13 +131,13 @@ function initGame() {
 
   var healthImg = images.get('/assets/health.png', {opaque:false,wrap:false});
   var belleImg = images.get('/assets/belle.png', {opaque:false,wrap:false});
-  var ropeImg = images.get('/assets/rope.png', {opaque:false,wrap:false});
-  var sliverImg = images.get('/assets/sliver.png', {opaque:false,wrap:false});
   var torchImg = images.get('/assets/flame.png', {opaque:false,wrap:false});
   var batImg = images.get('/assets/bat.png', {opaque:false,wrap:false});
   var crawlerImg = images.get('/assets/crawler.png', {opaque:false,wrap:false});
   var spiderImg = images.get('/assets/spider.png', {opaque:false,wrap:false});
   var springImg = images.get('/assets/spring.png', {opaque:false,wrap:false});
+  var ropeImg = images.get('/assets/rope.png', {opaque:false,wrap:true});
+  var sliverImg = images.get('/assets/sliver.png', {opaque:false,wrap:true});
 
   // wait for all the images to finish loading.
   images.wait(startGame);
@@ -178,11 +193,12 @@ function initGame() {
     // generate frame sets.
     belleTS   = FrameSet(belleImg,   32, 6, 0, 1000);
     torchTS   = FrameSet(torchImg,   32, 3, 0, 200);
-    ropeTS    = FrameSet(ropeImg,    32, 1, 0, 1000);
     springTS  = FrameSet(springImg,  32, 4, 0, 1000);
     crawlerTS = FrameSet(crawlerImg, 32, 1, 0, 1000);
     batTS     = FrameSet(batImg,     32, 2, 0, 500);
     spiderTS  = FrameSet(spiderImg,  32, 1, 0, 1000);
+    ropeTS    = FrameSet(ropeImg,    8, 1, 0, 1000);
+    sliverTS  = FrameSet(sliverImg,  2, 1, 0, 1000);
 
     // healthTS = FrameSet(healthImg, 1, 0);
     // sliverTS = FrameSet(sliverImg, 1, 0);
@@ -193,7 +209,7 @@ function initGame() {
       "5": springTS,
       "8": crawlerTS,
       "9": batTS,
-      "12": spiderTS,
+      "10": spiderTS,
     };
 
     // send a room request to the server.
@@ -248,14 +264,55 @@ function initGame() {
 
     // spawn sprites.
     sprites = [];
+    movers = [];
     var num_spawn = data[rd++];
     for (var i=0; i<num_spawn; i++) {
       var tt = data[rd], x = data[rd+1], y = data[rd+2]; rd += 3;
       var ts = tilesetMap[tt]; // type of sprite.
+      var mins = (tt===8||tt===9||tt===2||tt===10) ? data[rd++] : 0;
+      var maxs = (tt===8||tt===9) ? data[rd++] : 0;
+      var speed = 0;
+      if (tt===2) speed = 2.5 * (60/1000);
+      if (tt===8) speed = 2 * (60/1000);
+      if (tt===9) speed = 3 * (60/1000);
+      if (tt===10) speed = 1 * (60/1000);
       if (ts) {
-        sprites.push({
-          x:x, y:y, image:ts.image, geom:ts.geom,
-          frames:ts.frames, index:0, remain:ts.frames[0].ticks, loop:true });
+        var spr = { x:x, y:y, image:ts.image, geom:ts.geom, flip:false,
+                    mins:mins, maxs:maxs, pos:0, speed:-speed, update:null,
+                    frames:ts.frames, index:0, remain:ts.frames[0].ticks, loop:true };
+        sprites.push(spr);
+        if (tt===8||tt===9) {
+          movers.push(spr);
+          spr.pos = spr.x; // moves along X axis.
+          spr.update = function(s, dt){
+            s.pos += dt * s.speed;
+            if (s.pos <= s.mins) {
+              s.pos = s.mins; // FIXME: inaccurate.
+              s.speed = -s.speed;
+              s.flip = true;
+            } else if (s.pos >= s.maxs) {
+              s.pos = s.maxs; // FIXME: inaccurate.
+              s.speed = -s.speed;
+              s.flip = false;
+            }
+            s.x = Math.floor(s.pos); // snap to nearest pixel.
+          };
+        } else if (tt===2||tt===10) {
+          movers.push(spr);
+          spr.maxs = spr.y; // current Y is the maximum.
+          spr.pos = spr.y; // moves along Y axis.
+          spr.update = function(s, dt){
+            s.pos += dt * s.speed;
+            if (s.pos <= s.mins) {
+              s.pos = s.mins; // FIXME: inaccurate.
+              s.speed = -s.speed;
+            } else if (s.pos >= s.maxs) {
+              s.pos = s.maxs; // FIXME: inaccurate.
+              s.speed = -s.speed;
+            }
+            s.y = Math.floor(s.pos); // snap to nearest pixel.
+          };
+        }
         // log("spawn", i, ts.frames[0].ticks);
       }
     }

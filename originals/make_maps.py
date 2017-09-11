@@ -3,15 +3,30 @@
 import pygame
 
 DEFS = {
-    1: 'Torch',
-    2: 'Rope',
-    5: 'Spring',
-    8: 'Crawler',
-    9: 'Bat',
-    12: 'Spider',
+    1: ('Torch', '', 0),
+    2: ('Rope', 'DR', 4),      # 2 (top) -> 4 (bottom)
+    5: ('Spring', '', 0),
+    8: ('Crawler', 'LR', 16),
+    9: ('Bat', 'LR', 16),
+    10: ('Spider', 'D', 12),   # 10 (top) -> 12 (spider)
 }
 
+def findTile(img, x, y, dx, dy, marker, name):
+    ox, oy = x, y
+    while True:
+        x += dx
+        y += dy
+        r,g,b,a = img.get_at((x,y))
+        if b == marker:
+            dist = (x - ox) if dx != 0 else (y - oy)
+            return abs(dist) * 32
+        if b == 0:
+            # any gap in codes indicates a missing marker.
+            print "missing end-marker %d for %s at [%d,%d]" % (marker,name,ox,oy)
+            return 0
+
 def convert(rooms, filename, roomId):
+    print filename
     img = pygame.image.load(filename)
     w,h = img.get_size()
     L,T,R,B = w,h,0,0
@@ -36,9 +51,26 @@ def convert(rooms, filename, roomId):
     for y in xrange(0,map_h):
         for x in xrange(0,map_w):
             r,g,b,a = img.get_at((L+x,T+y))
-            item = DEFS.get(b)
-            if item:
-                spawns.append('    %d,%d,%d' % (b, x*32+16, y*32+16)) # center of tile.
+            tup = DEFS.get(b)
+            if tup:
+                name, scan, marker = tup
+                xpos = x * 32 + 16 # horizontal center of tile.
+                ypos = y * 32 + 16 # vertical center of tile.
+                if scan == 'DR':
+                    # rope must render from the top of the top tile to the bottom of the bottom tile.
+                    down = findTile(img, L+x, T+y, 0, 1, marker, name)
+                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos+down+16, ypos-16))
+                elif scan == 'D':
+                    # spider must move from the middle of the top tile to the middle of the bottom tile.
+                    # but the strand must extend to the top of the top tile (use a bg tile?)
+                    down = findTile(img, L+x, T+y, 0, 1, marker, name)
+                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos+down, ypos))
+                elif scan == 'LR':
+                    left = findTile(img, L+x, T+y, -1, 0, marker, name)
+                    right = findTile(img, L+x, T+y, 1, 0, marker, name)
+                    spawns.append('    %d,%d,%d,%d,%d' % (b, xpos, ypos, xpos-left, xpos+right))
+                else:
+                    spawns.append('    %d,%d,%d' % (b, xpos, ypos))
             tiles[y][x] = r
 
     lines = ["    " + (",".join(str(x) for x in row)) for row in tiles]
