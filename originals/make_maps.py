@@ -38,14 +38,13 @@ def convert(rooms, filename, roomId):
             r,g,b,a = img.get_at((L+x,T+y))
             item = DEFS.get(b)
             if item:
-                spawns.append('    { "t":%d, "x":%d, "y":%d }' % (b, x*32+16, y*32+16)) # center of tile.
+                spawns.append('    %d,%d,%d' % (b, x*32+16, y*32+16)) # center of tile.
             tiles[y][x] = r
 
     lines = ["    " + (",".join(str(x) for x in row)) for row in tiles]
-    spawn = ",\n".join(spawns)
-    if len(spawn):
-        spawn = "\n" + spawn
-    rooms.append('  "%d": { "w":%d, "h":%d, "map":[\n%s\n  ], "spawn":[%s\n  ]}' % (roomId, map_w, map_h, ",\n".join(lines), spawn))
+    if len(spawns):
+        spawn = ",\n    %d,\n%s" % (len(spawns), ",\n".join(spawns))
+    rooms.append('  "%d": [ %d, %d,\n%s%s\n  ]' % (roomId, map_w, map_h, ",\n".join(lines), spawn))
 
 
 def write(rooms, outfile):

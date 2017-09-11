@@ -5,7 +5,7 @@ function animateEnts(ents, delta) {
     var dt = delta;
     var frames = ent.frames; // animation frames.
     var index = ent.index; // current frame index.
-    var remain = ent.remin; // time remaining on current frame.
+    var remain = ent.remain; // time remaining on current frame.
     while (dt >= remain) {
       // advance to the next frame.
       dt -= remain;

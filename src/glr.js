@@ -94,7 +94,7 @@ function GLRenderer() {
 
   function drawDebug() {
     if (dcText) {
-      dcText.nodeValue = ' D: '+drawCalls+' B: '+blendCalls+' TC: '+texChange+' DT: '+(Math.round(lastDT*10)/10);
+      dcText.nodeValue = ' dc: '+drawCalls+' bm: '+blendCalls+' tc: '+texChange+' dt: '+(Math.round(lastDT*10)/10);
     }
     drawCalls = 0;
     blendCalls = 0;
@@ -417,8 +417,10 @@ function GLRenderer() {
           blendState = needTrans;
           if (blendState) {
             gl.enable(gl.BLEND);
+            blendCalls++;
           } else {
             gl.disable(gl.BLEND);
+            blendCalls++;
           }
         }
       }
@@ -434,7 +436,6 @@ function GLRenderer() {
 
       gl.drawElements(gl.TRIANGLES, inum, gl.UNSIGNED_SHORT, iofs);
       drawCalls++;
-      if (blendState) blendCalls++;
     }
 
     var buf = {

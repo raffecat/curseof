@@ -31,11 +31,12 @@ function initGame() {
   function render(dt) {
     if (!(ready && tileImg.texture)) return;
 
+    // cycle through maps with 'M' for testing.
     if (keys[77]) {
       if (!loadLatch) {
         loadLatch = true;
         levelNum += 1;
-        if (levelNum > 5) levelNum = 0;
+        if (levelNum > 3) levelNum = 0;
         var socket = GS.w; // injected globals.
         socket.emit('r',levelNum);
       }
@@ -43,14 +44,17 @@ function initGame() {
       loadLatch = false;
     }
 
-    // camera panning (hold shift to speed up)
+    // camera panning with arrow keys (hold shift to speed up)
     var sspd = keys[16] ? (spd * 10) : spd;
     if (keys[37]) panX += dt * sspd; else if (keys[39]) panX -= dt * sspd;
     if (keys[38]) panY += dt * sspd; else if (keys[40]) panY -= dt * sspd;
     cameraTransform[12] = Math.floor(panX);
     cameraTransform[13] = Math.floor(panY);
 
-    // render the room.
+    // animate all sprites.
+    animateEnts(sprites, dt);
+
+    // render the room geometry.
     renderer.setViewMatrix(cameraTransform);
     roomGeom.draw(tileImg.texture);
 
@@ -60,7 +64,8 @@ function initGame() {
       spriteTransform[12] = cameraTransform[12] + s.x;
       spriteTransform[13] = cameraTransform[13] + s.y;
       renderer.setViewMatrix(spriteTransform);
-      var frame = s.frames[0];
+      //log(i, s.index, s.remain, s.loop);
+      var frame = s.frames[s.index];
       s.geom.draw(s.image.texture, frame.iofs, frame.inum);
     }
   }
@@ -131,7 +136,7 @@ function initGame() {
     }
   }
 
-  function FrameSet(image, tileSize, num_frames, yOfs) {
+  function FrameSet(image, tileSize, num_frames, yOfs, ticks) {
     var drawSize = tileSize;
     var img_w = image.width, img_h = image.height;
     var ts_u = tileSize/img_w;
@@ -159,7 +164,7 @@ function initGame() {
       vofs += 4; // have used 4 vertices.
       // generate frame.
       frames.push({
-        iofs: (base*2), inum: (iofs-base)
+        iofs: (base*2), inum: (iofs-base), ticks: ticks
       });
     }
     geom.update(verts, inds);
@@ -171,13 +176,13 @@ function initGame() {
 
   function startGame() {
     // generate frame sets.
-    belleTS = FrameSet(belleImg, 32, 6, 0);
-    torchTS = FrameSet(torchImg, 32, 3, 0);
-    ropeTS = FrameSet(ropeImg, 32, 1, 0);
-    springTS = FrameSet(springImg, 32, 4, 0);
-    crawlerTS = FrameSet(crawlerImg, 32, 1, 0);
-    batTS = FrameSet(batImg, 32, 2, 0);
-    spiderTS = FrameSet(spiderImg, 32, 1, 0);
+    belleTS   = FrameSet(belleImg,   32, 6, 0, 1000);
+    torchTS   = FrameSet(torchImg,   32, 3, 0, 200);
+    ropeTS    = FrameSet(ropeImg,    32, 1, 0, 1000);
+    springTS  = FrameSet(springImg,  32, 4, 0, 1000);
+    crawlerTS = FrameSet(crawlerImg, 32, 1, 0, 1000);
+    batTS     = FrameSet(batImg,     32, 2, 0, 500);
+    spiderTS  = FrameSet(spiderImg,  32, 1, 0, 1000);
 
     // healthTS = FrameSet(healthImg, 1, 0);
     // sliverTS = FrameSet(sliverImg, 1, 0);
@@ -200,21 +205,23 @@ function initGame() {
   function loadRoom(data) {
     // log("Room:", data.width, data.height, data.map, data.spawn);
 
-    var map = data.map, map_w = data.w, map_h = data.h;
+    // [width, height, {tile}, num_spawn, {type,x,y}]
+    var map_w = data[0], map_h = data[1], rd = 2;
     var drawSize = 32;
     var ox = -Math.floor(drawSize * map_w * 0.5);
     var oy = -Math.floor(drawSize * map_h * 0.5);
 
+    // reset the camera position.
     panX = ox;
     panY = oy;
 
     // generate geometry for all non-empty room tiles.
     var verts = new FloatArray(4 * 4 * map_w * map_h); // [x,y,u,v] * [L,B,R,T] * w * h
     var inds = new Uint16Array(6 * map_w * map_h);     // [0,1,2,1,3,2] * w * h
-    var wr = 0, rd = 0, vofs = 0, iofs = 0;
+    var wr = 0, vofs = 0, iofs = 0;
     for (var y=0; y<map_h; y++) {
       for (var x=0; x<map_w; x++) {
-        var v = map[rd++];
+        var v = data[rd++];
         if (v) { // tile zero is never rendered.
           var t = tileSet[v];
           if (t) { // protect against out-of-bounds.
@@ -241,12 +248,15 @@ function initGame() {
 
     // spawn sprites.
     sprites = [];
-    var spawn = data.spawn;
-    for (var i=0; i<spawn.length; i++) {
-      var spr = spawn[i];
-      var ts = tilesetMap[spr.t]; // type of sprite.
+    var num_spawn = data[rd++];
+    for (var i=0; i<num_spawn; i++) {
+      var tt = data[rd], x = data[rd+1], y = data[rd+2]; rd += 3;
+      var ts = tilesetMap[tt]; // type of sprite.
       if (ts) {
-        sprites.push({ x: spr.x, y: spr.y, image: ts.image, geom: ts.geom, frames: ts.frames });
+        sprites.push({
+          x:x, y:y, image:ts.image, geom:ts.geom,
+          frames:ts.frames, index:0, remain:ts.frames[0].ticks, loop:true });
+        // log("spawn", i, ts.frames[0].ticks);
       }
     }
     if (!ready) hideStatus(); // finished loading.
