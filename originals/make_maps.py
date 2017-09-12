@@ -48,7 +48,7 @@ def convert(rooms, filename, roomId):
     rx = 0
     ry = 0
     tiles = [[0]*map_w for y in xrange(0,map_h)]
-    spawns = []
+    spawns = [] # TODO: sort spawns by type (for render batching)
     for y in xrange(0,map_h):
         for x in xrange(0,map_w):
             r,g,b,a = img.get_at((L+x,T+y))

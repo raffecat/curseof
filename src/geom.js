@@ -47,17 +47,16 @@ function TileSet(image, tileSize) {
   return tileSet;
 }
 
-function FrameSet(renderer, image, tileSize, num_frames, yOfs, ticks) {
+function FrameSet(renderer, image, tileW, tileH, num_frames, yOfs, ticks) {
   var img_w = image.width, img_h = image.height;
-  var ts_u = tileSize/img_w;
-  var geom = renderer.newGeometry(); // num_frames * 16, num_frames * 6
-  var L = -tileSize/2, B = -tileSize/2; // bottom-left of this tile.
-  var R = L + tileSize, T = B + tileSize; // top-right of this tile.
+  var ts_u = tileW/img_w;
+  var L = -tileW/2, B = -tileH/2; // bottom-left of this tile.
+  var R = L + tileW, T = B + tileH; // top-right of this tile.
   var frames = [];
   var verts = new FloatArray(16 * num_frames); // [x,y,u,v] * [L,B,R,T] * num_frames
   var inds = new Uint16Array(6 * num_frames);  // [0,1,2,1,3,2] * num_frames
   var wr = 0, vofs = 0, iofs = 0;
-  var v0 = (yOfs+tileSize)/img_h, v1 = yOfs/img_h;
+  var v0 = (yOfs+tileH)/img_h, v1 = yOfs/img_h;
   for (var x=0; x<num_frames; x++) {
     var u0 = x * ts_u, u1 = (x+1) * ts_u;
     // generate vertices.
@@ -77,7 +76,6 @@ function FrameSet(renderer, image, tileSize, num_frames, yOfs, ticks) {
       iofs: (base*2), inum: (iofs-base), ticks: ticks
     });
   }
-  geom.update(verts, inds);
+  var geom = renderer.newGeometry(verts, inds); // num_frames * 16, num_frames * 6
   return { frames:frames, image:image, geom:geom };
 }
-

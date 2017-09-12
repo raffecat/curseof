@@ -120,8 +120,8 @@ function initGame() {
 
   var images = CacheLoader(ImageLoader);
 
-  //var quadVerts = new FloatArray([ -w,-h,0,0, w,-h,1,0, -w,h,0,1, w,h,1,1 ]);
-  //var quadInds = new Uint16Array([0,1,2, 1,3,2]);
+  var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
+  var quadInds = new Uint16Array([0,1,2, 1,3,2]);
 
   // load tiles.
   var tileImg = images.get('/assets/tiles.png', {opaque:true,wrap:false});
@@ -140,7 +140,7 @@ function initGame() {
   // wait for all the images to finish loading.
   images.wait(startGame);
 
-  var belleTS, torchTS, ropeTS, springTS, crawlerTS, batTS, spiderTS;
+  var belleTS, torchTS, springTS, crawlerTS, batTS, spiderTS;
   var tileSet = [];
   var codeMap = {};
 
@@ -148,21 +148,15 @@ function initGame() {
     tileSet = TileSet(tileImg, 32);
 
     // generate frame sets.
-    belleTS   = FrameSet(renderer, belleImg,   32, 6, 0, 1000);
-    torchTS   = FrameSet(renderer, torchImg,   32, 3, 0, 200);
-    springTS  = FrameSet(renderer, springImg,  32, 4, 0, 1000);
-    crawlerTS = FrameSet(renderer, crawlerImg, 32, 1, 0, 1000);
-    batTS     = FrameSet(renderer, batImg,     32, 2, 0, 500);
-    spiderTS  = FrameSet(renderer, spiderImg,  32, 1, 0, 1000);
-    ropeTS    = FrameSet(renderer, ropeImg,    8, 1, 0, 1000);
-    sliverTS  = FrameSet(renderer, sliverImg,  2, 1, 0, 1000);
-
-    // healthTS = FrameSet(healthImg, 1, 0);
-    // sliverTS = FrameSet(sliverImg, 1, 0);
+    belleTS   = FrameSet(renderer, belleImg,   32, 32, 6, 0, 1000);
+    torchTS   = FrameSet(renderer, torchImg,   32, 32, 3, 0, 200);
+    springTS  = FrameSet(renderer, springImg,  32, 32, 4, 0, 1000);
+    crawlerTS = FrameSet(renderer, crawlerImg, 32, 32, 1, 0, 1000);
+    batTS     = FrameSet(renderer, batImg,     32, 32, 2, 0, 500);
+    spiderTS  = FrameSet(renderer, spiderImg,  32, 32, 1, 0, 1000);
 
     codeMap = {
       "1": torchTS,
-      "2": ropeTS,
       "5": springTS,
       "8": crawlerTS,
       "9": batTS,
@@ -203,62 +197,106 @@ function initGame() {
     for (var i=0; i<num_spawn; i++) {
       // NB. sprites are relative to the top-left corner of the map (y is always negative)
       var tt = data[ofs], x = data[ofs+1], y = data[ofs+2]; ofs += 3;
-      var ts = codeMap[tt]; // type of sprite.
       var mins = (tt===8||tt===9) ? data[ofs++] : 0;
       var maxs = (tt===8||tt===9||tt===2||tt===10) ? data[ofs++] : 0;
-      var speed = 0;
-      if (tt===2) speed = 2.5 * (60/1000);
-      if (tt===8) speed = 2 * (60/1000);
-      if (tt===9) speed = 3 * (60/1000);
-      if (tt===10) speed = 1 * (60/1000);
-      if (tt===48) speed = 2 * (60/1000);
-      if (ts) {
-        var spr = { x:x, y:y, image:ts.image, geom:ts.geom, flip:false,
-                    mins:mins, maxs:maxs, pos:0, speed:-speed, update:null,
-                    frames:ts.frames, index:0, remain:ts.frames[0].ticks, loop:true };
-        sprites.push(spr);
-        if (tt===8||tt===9) {
-          movers.push(spr);
-          spr.pos = spr.x; // moves along X axis.
-          spr.update = function(s, dt){
-            s.pos += dt * s.speed;
-            if (s.pos <= s.mins) {
-              s.pos = s.mins; // FIXME: inaccurate.
-              s.speed = -s.speed;
-              s.flip = true;
-            } else if (s.pos >= s.maxs) {
-              s.pos = s.maxs; // FIXME: inaccurate.
-              s.speed = -s.speed;
-              s.flip = false;
-            }
-            s.x = Math.floor(s.pos); // snap to nearest pixel.
-          };
-        } else if (tt===2||tt===10) {
-          movers.push(spr);
-          spr.mins = spr.y; // current Y is the lowest value.
-          spr.pos = spr.y; // moves along Y axis.
-          spr.update = function(s, dt){
-            s.pos += dt * s.speed;
-            if (s.pos <= s.mins) {
-              s.pos = s.mins; // FIXME: inaccurate.
-              s.speed = -s.speed;
-            } else if (s.pos >= s.maxs) {
-              s.pos = s.maxs; // FIXME: inaccurate.
-              s.speed = -s.speed;
-            }
-            s.y = Math.floor(s.pos); // snap to nearest pixel.
-          };
-        } else if (tt===48) {
-          // player spawn point.
-          spr.posX = spr.x;
-          spr.posY = spr.y;
-          spr.velX = 0;
-          spr.velY = 0;
-          spr.onground = true;
-          spr.onrope = true;
-          player = spr;
+      // spawn.
+      if (tt===2) {
+        // Rope.
+        var speed = 2.5 * (60/1000);
+        var geom = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
+        var spr = { x:x, image:ropeImg, geom:geom, mins:y, maxs:maxs, pos:y, speed:-speed };
+        movers.push(spr); // update.
+        lines.push(spr);  // render.
+        spr.update = function(s, dt) {
+          s.pos += dt * s.speed;
+          if (s.pos <= s.mins) {
+            s.pos = s.mins; // FIXME: inaccurate.
+            s.speed = -s.speed;
+          } else if (s.pos >= s.maxs) {
+            s.pos = s.maxs; // FIXME: inaccurate.
+            s.speed = -s.speed;
+          }
+          // update the rope geometry.
+          var hw = 4, rope_v = 1/32;
+          var L = s.x - hw + 1, R = s.x + hw + 1;
+          var T = s.maxs, B = Math.floor(s.pos); // snap to nearest pixel.
+          var v1 = (T-B) * rope_v; // repeat texture.
+          quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
+          quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
+          quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
+          quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
+          s.geom.update(quadVerts);
+        };
+      } else {
+        var speed = 0;
+        if (tt===8) speed = 2 * (60/1000);
+        if (tt===9) speed = 3 * (60/1000);
+        if (tt===10) speed = 1 * (60/1000);
+        if (tt===48) speed = 2 * (60/1000);
+        var ts = codeMap[tt]; // type of sprite.
+        if (ts) {
+          var spr = { x:x, y:y, image:ts.image, geom:ts.geom, flip:false,
+                      mins:mins, maxs:maxs, pos:0, speed:-speed, update:null,
+                      frames:ts.frames, index:0, remain:ts.frames[0].ticks, loop:true };
+          sprites.push(spr); // render.
+          // log("spawn", i, ts.frames[0].ticks);
+          if (tt===8||tt===9) {
+            // Crawler, Bat.
+            movers.push(spr); // update.
+            spr.pos = spr.x; // moves along X axis.
+            spr.update = function(s, dt){
+              s.pos += dt * s.speed;
+              if (s.pos <= s.mins) {
+                s.pos = s.mins; // FIXME: inaccurate.
+                s.speed = -s.speed;
+                s.flip = true;
+              } else if (s.pos >= s.maxs) {
+                s.pos = s.maxs; // FIXME: inaccurate.
+                s.speed = -s.speed;
+                s.flip = false;
+              }
+              s.x = Math.floor(s.pos); // snap to nearest pixel.
+            };
+          } else if (tt===10) {
+            // Spider.
+            spr.thread = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
+            lines.push({ image:sliverImg, geom:spr.thread });  // render.
+            movers.push(spr); // update.
+            spr.mins = spr.y; // current Y is the lowest value.
+            spr.pos = spr.y; // moves along Y axis.
+            spr.update = function(s, dt) {
+              // move the spider.
+              s.pos += dt * s.speed;
+              if (s.pos <= s.mins) {
+                s.pos = s.mins; // FIXME: inaccurate.
+                s.speed = -s.speed;
+              } else if (s.pos >= s.maxs) {
+                s.pos = s.maxs; // FIXME: inaccurate.
+                s.speed = -s.speed;
+              }
+              s.y = Math.floor(s.pos); // snap to nearest pixel.
+              // update the thread geometry.
+              var hw = 1, rope_v = 1/32;
+              var L = s.x - hw, R = s.x + hw;
+              var T = s.maxs + 16, B = s.y; // snap to nearest pixel.
+              var v1 = (T-B) * rope_v; // repeat texture.
+              quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
+              quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
+              quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
+              quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
+              s.thread.update(quadVerts);
+            };
+          } else if (tt===48) {
+            // player spawn point.
+            spr.posX = spr.x;
+            spr.posY = spr.y;
+            spr.velX = 0;
+            spr.velY = 0;
+            spr.onground = true;
+            spr.onrope = true;
+            player = spr; // update.
+          }
         }
-        // log("spawn", i, ts.frames[0].ticks);
       }
     }
 
