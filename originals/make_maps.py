@@ -9,6 +9,7 @@ DEFS = {
     8: ('Crawler', 'LR', 16),
     9: ('Bat', 'LR', 16),
     10: ('Spider', 'D', 12),   # 10 (top) -> 12 (spider)
+    48: ('Belle', '', 0),
 }
 
 def findTile(img, x, y, dx, dy, marker, name):
@@ -55,16 +56,16 @@ def convert(rooms, filename, roomId):
             if tup:
                 name, scan, marker = tup
                 xpos = x * 32 + 16 # horizontal center of tile.
-                ypos = y * 32 + 16 # vertical center of tile.
+                ypos = -y * 32 - 16 # vertical center of tile (relative to top-left corner of the map)
                 if scan == 'DR':
                     # rope must render from the top of the top tile to the bottom of the bottom tile.
                     down = findTile(img, L+x, T+y, 0, 1, marker, name)
-                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos+down+16, ypos-16))
+                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos-down-16, ypos+16))
                 elif scan == 'D':
                     # spider must move from the middle of the top tile to the middle of the bottom tile.
                     # but the strand must extend to the top of the top tile (use a bg tile?)
                     down = findTile(img, L+x, T+y, 0, 1, marker, name)
-                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos+down, ypos))
+                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos-down, ypos))
                 elif scan == 'LR':
                     left = findTile(img, L+x, T+y, -1, 0, marker, name)
                     right = findTile(img, L+x, T+y, 1, 0, marker, name)

@@ -27,6 +27,7 @@ function initGame() {
   var movers = [];
   var lines = [];
   var sprites = [];
+  var player = null;
   var panX=0, panY=0, spd = 1;
   var loadLatch=false, levelNum=0;
 
@@ -49,7 +50,7 @@ function initGame() {
     // camera panning with arrow keys (hold shift to speed up)
     var sspd = keys[16] ? (spd * 10) : spd;
     if (keys[37]) panX += dt * sspd; else if (keys[39]) panX -= dt * sspd;
-    if (keys[38]) panY += dt * sspd; else if (keys[40]) panY -= dt * sspd;
+    if (keys[40]) panY += dt * sspd; else if (keys[38]) panY -= dt * sspd;
     cameraTransform[12] = Math.floor(panX);
     cameraTransform[13] = Math.floor(panY);
 
@@ -57,6 +58,11 @@ function initGame() {
     for (var i=0; i<movers.length; i++) {
       var s = movers[i];
       s.update(s, dt);
+    }
+
+    // move the player.
+    if (player) {
+      walkMove(player, dt);
     }
 
     // animate all sprites.
@@ -162,7 +168,7 @@ function initGame() {
     var verts = new FloatArray(16 * num_frames); // [x,y,u,v] * [L,B,R,T] * num_frames
     var inds = new Uint16Array(6 * num_frames);  // [0,1,2,1,3,2] * num_frames
     var wr = 0, vofs = 0, iofs = 0;
-    var v0 = yOfs/img_h, v1 = (yOfs+tileSize)/img_h;
+    var v0 = (yOfs+tileSize)/img_h, v1 = yOfs/img_h;
     for (var x=0; x<num_frames; x++) {
       var u0 = x * ts_u, u1 = (x+1) * ts_u;
       // generate vertices.
@@ -210,6 +216,7 @@ function initGame() {
       "8": crawlerTS,
       "9": batTS,
       "10": spiderTS,
+      "48": belleTS,
     };
 
     // send a room request to the server.
@@ -224,10 +231,16 @@ function initGame() {
     // [width, height, {tile}, num_spawn, {type,x,y}]
     var map_w = data[0], map_h = data[1], rd = 2;
     var drawSize = 32;
-    var ox = -Math.floor(drawSize * map_w * 0.5);
-    var oy = -Math.floor(drawSize * map_h * 0.5);
 
-    // reset the camera position.
+    // origin is the top-left corner of the map.
+    var ox = -Math.floor(drawSize * map_w * 0.5);
+    var oy = Math.floor(drawSize * map_h * 0.5);
+
+    // reset room state.
+    movers = [];
+    lines = [];
+    sprites = [];
+    player = null;
     panX = ox;
     panY = oy;
 
@@ -241,8 +254,8 @@ function initGame() {
         if (v) { // tile zero is never rendered.
           var t = tileSet[v];
           if (t) { // protect against out-of-bounds.
-            var L = x * drawSize, T = y * drawSize; // top-left of this tile.
-            var R = L + drawSize, B = T + drawSize; // bottom-right of this tile.
+            var L = x * drawSize, T = -y * drawSize; // top-left of this tile.
+            var R = L + drawSize, B = T - drawSize; // bottom-right of this tile.
             var u0 = t.u0, v0 = t.v0, u1 = t.u1, v1 = t.v1;
             // log("tile", v, L,B,R,T, u0,v0,u1,v1);
             verts[wr+0] = L;  verts[wr+1] = B;  verts[wr+2] = u0;  verts[wr+3] = v0;
@@ -263,19 +276,19 @@ function initGame() {
     roomGeom.update(usedVerts, usedInds);
 
     // spawn sprites.
-    sprites = [];
-    movers = [];
     var num_spawn = data[rd++];
     for (var i=0; i<num_spawn; i++) {
+      // NB. sprites are relative to the top-left corner of the map (y is always negative)
       var tt = data[rd], x = data[rd+1], y = data[rd+2]; rd += 3;
       var ts = tilesetMap[tt]; // type of sprite.
-      var mins = (tt===8||tt===9||tt===2||tt===10) ? data[rd++] : 0;
-      var maxs = (tt===8||tt===9) ? data[rd++] : 0;
+      var mins = (tt===8||tt===9) ? data[rd++] : 0;
+      var maxs = (tt===8||tt===9||tt===2||tt===10) ? data[rd++] : 0;
       var speed = 0;
       if (tt===2) speed = 2.5 * (60/1000);
       if (tt===8) speed = 2 * (60/1000);
       if (tt===9) speed = 3 * (60/1000);
       if (tt===10) speed = 1 * (60/1000);
+      if (tt===48) speed = 2 * (60/1000);
       if (ts) {
         var spr = { x:x, y:y, image:ts.image, geom:ts.geom, flip:false,
                     mins:mins, maxs:maxs, pos:0, speed:-speed, update:null,
@@ -299,7 +312,7 @@ function initGame() {
           };
         } else if (tt===2||tt===10) {
           movers.push(spr);
-          spr.maxs = spr.y; // current Y is the maximum.
+          spr.mins = spr.y; // current Y is the lowest value.
           spr.pos = spr.y; // moves along Y axis.
           spr.update = function(s, dt){
             s.pos += dt * s.speed;
@@ -312,10 +325,20 @@ function initGame() {
             }
             s.y = Math.floor(s.pos); // snap to nearest pixel.
           };
+        } else if (tt===48) {
+          // player spawn point.
+          spr.posX = spr.x;
+          spr.posY = spr.y;
+          spr.velX = 0;
+          spr.velY = 0;
+          spr.onground = true;
+          spr.onrope = true;
+          player = spr;
         }
         // log("spawn", i, ts.frames[0].ticks);
       }
     }
+
     if (!ready) hideStatus(); // finished loading.
     ready = true;
   }

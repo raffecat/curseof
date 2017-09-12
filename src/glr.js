@@ -51,7 +51,7 @@ function GLRenderer() {
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     }
 
-    projMatrix = new FloatArray(ortho(-backingWidth/2, backingWidth/2, backingHeight/2, -backingHeight/2, -1, 1));
+    projMatrix = new FloatArray(ortho(-backingWidth/2, backingWidth/2, -backingHeight/2, backingHeight/2, -1, 1));
     api.width = backingWidth;
     api.height = backingHeight;
   }
@@ -322,8 +322,8 @@ function GLRenderer() {
         currentTex = tex._t = gl.createTexture();
         gl.bindTexture(gl.TEXTURE_2D, tex._t);
         update();
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR); // LINEAR_MIPMAP_LINEAR
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST); // LINEAR
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); // LINEAR_MIPMAP_LINEAR
         if (!wrap) {
           // NB. cannot wrap (must clamp to edge) for non-power-of-two textures.
           gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
