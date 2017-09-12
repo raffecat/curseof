@@ -36,9 +36,11 @@ write('gen/game.js', minify(wrap(
   shaders +
   untrace(concat([
     'src/raf-shim.js',
+    'src/defs.js',
     'src/cache.js',
     'src/controls.js',
     'src/engine.js',
+    'src/geom.js',
     'src/glr.js',
     'src/start.js'
   ]))

@@ -26,6 +26,7 @@ function animateEnts(ents, delta) {
   }
 }
 
+/*
 function renderEnts(ents, gl) {
   for (var i=0; i<ents.length; i++) {
     var ent = ents[i];
@@ -34,6 +35,7 @@ function renderEnts(ents, gl) {
     gl.drawRangeElements(gl.TRIANGLES, frame.firstIdx, frame.lastIdx, frame.numIdx, gl.UNSIGNED_SHORT, frame.idxOfs);
   }
 }
+*/
 
 var jumpVelocity = 6 * (60/1000);
 var gravity = 1 * (60/1000);

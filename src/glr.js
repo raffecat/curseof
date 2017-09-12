@@ -7,15 +7,6 @@ function GLRenderer() {
   // Firefox and Chrome seem fine with 1500 draw calls at any size.
   // Chrome is VERY sensitive to GC, causing periodic stutter (every 30 seconds)
 
-  var debug = true;
-
-  var hasOwn = Object.prototype.hasOwnProperty;
-  var log = debug && window.console && console.log && console.log.bind && console.log.bind(console) || function(){};
-  var trace = log;
-
-  var FloatArray = window.WebGLFloatArray || window.Float32Array;
-  var Uint16Array = window.Uint16Array;
-
   var canvas = document.createElement('canvas');
   document.body.insertBefore(canvas, document.body.firstChild);
 
@@ -105,7 +96,7 @@ function GLRenderer() {
   // ---- GL context.
 
   var gl;
-  var clearBits;
+  // var clearBits;
 
   var vertexPositionAttribute;
   var textureCoordAttribute;
@@ -155,9 +146,11 @@ function GLRenderer() {
       }
     }
 
+    /*
     clearBits = gl.COLOR_BUFFER_BIT;
     if (glopts.stencil) clearBits |= gl.STENCIL_BUFFER_BIT;
     if (glopts.depth) clearBits |= gl.DEPTH_BUFFER_BIT;
+    */
 
     // shaders.
 
@@ -295,8 +288,8 @@ function GLRenderer() {
 
   // ---- textures.
 
-  var eps = 0.5001;
-  var wholeTexture = [0,1, 1,1, 0,0, 1,0];
+  // var eps = 0.5001;
+  // var wholeTexture = [0,1, 1,1, 0,0, 1,0];
 
   function newTexture(img) {
     // return a wrapper object that manages the GL texture.

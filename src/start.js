@@ -3,16 +3,10 @@ function getElem(id) { return document.getElementById(id); }
 function showStatus(msg) { getElem('p').firstChild.nodeValue = msg; }
 function removeElem(id,e) { (e=getElem(id)).parentNode.removeChild(e); }
 
-var log = window.console && console.log && console.log.bind && console.log.bind(console) || function(){};
-var trace = log;
-
 function initGame() {
   showStatus( 'Loading...' );
 
   var renderer = GLRenderer();
-
-  var FloatArray = window.WebGLFloatArray || window.Float32Array;
-  var Uint16Array = window.Uint16Array;
 
   var IDENTITY = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
   var noTransform = new FloatArray(IDENTITY); // TODO.
@@ -126,8 +120,6 @@ function initGame() {
 
   var images = CacheLoader(ImageLoader);
 
-  var ts_w = 256, ts_h = 384;
-  //var w = (ts_w/2), h = (ts_h/2);
   //var quadVerts = new FloatArray([ -w,-h,0,0, w,-h,1,0, -w,h,0,1, w,h,1,1 ]);
   //var quadInds = new Uint16Array([0,1,2, 1,3,2]);
 
@@ -148,68 +140,27 @@ function initGame() {
   // wait for all the images to finish loading.
   images.wait(startGame);
 
-  // tile set.
-  var tileSize = 32, ts_u = tileSize/ts_w, ts_v = tileSize/ts_h;
-  var tileSet = [];
-  for (var y=0; y<(ts_h/tileSize); y++) {
-    for (var x=0; x<(ts_w/tileSize); x++) {
-      tileSet.push({ u0: x * ts_u, v0: (y+1) * ts_v, u1: (x+1) * ts_u, v1: y * ts_v });
-    }
-  }
-
-  function FrameSet(image, tileSize, num_frames, yOfs, ticks) {
-    var drawSize = tileSize;
-    var img_w = image.width, img_h = image.height;
-    var ts_u = tileSize/img_w;
-    var geom = renderer.newGeometry(); // num_frames * 16, num_frames * 6
-    var L = -tileSize/2, B = -tileSize/2; // bottom-left of this tile.
-    var R = L + drawSize, T = B + drawSize; // top-right of this tile.
-    var frames = [];
-    var verts = new FloatArray(16 * num_frames); // [x,y,u,v] * [L,B,R,T] * num_frames
-    var inds = new Uint16Array(6 * num_frames);  // [0,1,2,1,3,2] * num_frames
-    var wr = 0, vofs = 0, iofs = 0;
-    var v0 = (yOfs+tileSize)/img_h, v1 = yOfs/img_h;
-    for (var x=0; x<num_frames; x++) {
-      var u0 = x * ts_u, u1 = (x+1) * ts_u;
-      // generate vertices.
-      verts[wr+0] = L;  verts[wr+1] = B;  verts[wr+2] = u0;  verts[wr+3] = v0;
-      verts[wr+4] = R;  verts[wr+5] = B;  verts[wr+6] = u1;  verts[wr+7] = v0;
-      verts[wr+8] = L;  verts[wr+9] = T;  verts[wr+10] = u0; verts[wr+11] = v1;
-      verts[wr+12] = R; verts[wr+13] = T; verts[wr+14] = u1; verts[wr+15] = v1;
-      wr += 16; // have used 16 floats.
-      // generate indices.
-      var base = iofs;
-      inds[iofs+0] = vofs+0; inds[iofs+1] = vofs+1; inds[iofs+2] = vofs+2;
-      inds[iofs+3] = vofs+1; inds[iofs+4] = vofs+3; inds[iofs+5] = vofs+2;
-      iofs += 6; // have used 6 indices.
-      vofs += 4; // have used 4 vertices.
-      // generate frame.
-      frames.push({
-        iofs: (base*2), inum: (iofs-base), ticks: ticks
-      });
-    }
-    geom.update(verts, inds);
-    return { frames:frames, image:image, geom:geom };
-  }
-
   var belleTS, torchTS, ropeTS, springTS, crawlerTS, batTS, spiderTS;
-  var tilesetMap = {};
+  var tileSet = [];
+  var codeMap = {};
 
   function startGame() {
+    tileSet = TileSet(tileImg, 32);
+
     // generate frame sets.
-    belleTS   = FrameSet(belleImg,   32, 6, 0, 1000);
-    torchTS   = FrameSet(torchImg,   32, 3, 0, 200);
-    springTS  = FrameSet(springImg,  32, 4, 0, 1000);
-    crawlerTS = FrameSet(crawlerImg, 32, 1, 0, 1000);
-    batTS     = FrameSet(batImg,     32, 2, 0, 500);
-    spiderTS  = FrameSet(spiderImg,  32, 1, 0, 1000);
-    ropeTS    = FrameSet(ropeImg,    8, 1, 0, 1000);
-    sliverTS  = FrameSet(sliverImg,  2, 1, 0, 1000);
+    belleTS   = FrameSet(renderer, belleImg,   32, 6, 0, 1000);
+    torchTS   = FrameSet(renderer, torchImg,   32, 3, 0, 200);
+    springTS  = FrameSet(renderer, springImg,  32, 4, 0, 1000);
+    crawlerTS = FrameSet(renderer, crawlerImg, 32, 1, 0, 1000);
+    batTS     = FrameSet(renderer, batImg,     32, 2, 0, 500);
+    spiderTS  = FrameSet(renderer, spiderImg,  32, 1, 0, 1000);
+    ropeTS    = FrameSet(renderer, ropeImg,    8, 1, 0, 1000);
+    sliverTS  = FrameSet(renderer, sliverImg,  2, 1, 0, 1000);
 
     // healthTS = FrameSet(healthImg, 1, 0);
     // sliverTS = FrameSet(sliverImg, 1, 0);
 
-    tilesetMap = {
+    codeMap = {
       "1": torchTS,
       "2": ropeTS,
       "5": springTS,
@@ -229,7 +180,7 @@ function initGame() {
     // log("Room:", data.width, data.height, data.map, data.spawn);
 
     // [width, height, {tile}, num_spawn, {type,x,y}]
-    var map_w = data[0], map_h = data[1], rd = 2;
+    var map_w = data[0], map_h = data[1], ofs = 2;
     var drawSize = 32;
 
     // origin is the top-left corner of the map.
@@ -245,44 +196,16 @@ function initGame() {
     panY = oy;
 
     // generate geometry for all non-empty room tiles.
-    var verts = new FloatArray(4 * 4 * map_w * map_h); // [x,y,u,v] * [L,B,R,T] * w * h
-    var inds = new Uint16Array(6 * map_w * map_h);     // [0,1,2,1,3,2] * w * h
-    var wr = 0, vofs = 0, iofs = 0;
-    for (var y=0; y<map_h; y++) {
-      for (var x=0; x<map_w; x++) {
-        var v = data[rd++];
-        if (v) { // tile zero is never rendered.
-          var t = tileSet[v];
-          if (t) { // protect against out-of-bounds.
-            var L = x * drawSize, T = -y * drawSize; // top-left of this tile.
-            var R = L + drawSize, B = T - drawSize; // bottom-right of this tile.
-            var u0 = t.u0, v0 = t.v0, u1 = t.u1, v1 = t.v1;
-            // log("tile", v, L,B,R,T, u0,v0,u1,v1);
-            verts[wr+0] = L;  verts[wr+1] = B;  verts[wr+2] = u0;  verts[wr+3] = v0;
-            verts[wr+4] = R;  verts[wr+5] = B;  verts[wr+6] = u1;  verts[wr+7] = v0;
-            verts[wr+8] = L;  verts[wr+9] = T;  verts[wr+10] = u0; verts[wr+11] = v1;
-            verts[wr+12] = R; verts[wr+13] = T; verts[wr+14] = u1; verts[wr+15] = v1;
-            wr += 16; // have used 16 floats.
-            inds[iofs+0] = vofs+0; inds[iofs+1] = vofs+1; inds[iofs+2] = vofs+2;
-            inds[iofs+3] = vofs+1; inds[iofs+4] = vofs+3; inds[iofs+5] = vofs+2;
-            iofs += 6; // have used 6 indices.
-            vofs += 4; // have used 4 vertices.
-          }
-        }
-      }
-    }
-    var usedVerts = new FloatArray(verts.buffer, 0, wr);  // view, sized to fit.
-    var usedInds = new Uint16Array(inds.buffer, 0, iofs); // view, sized to fit.
-    roomGeom.update(usedVerts, usedInds);
+    ofs = MapGeom(roomGeom, tileSet, data, ofs, map_w, map_h);
 
     // spawn sprites.
-    var num_spawn = data[rd++];
+    var num_spawn = data[ofs++];
     for (var i=0; i<num_spawn; i++) {
       // NB. sprites are relative to the top-left corner of the map (y is always negative)
-      var tt = data[rd], x = data[rd+1], y = data[rd+2]; rd += 3;
-      var ts = tilesetMap[tt]; // type of sprite.
-      var mins = (tt===8||tt===9) ? data[rd++] : 0;
-      var maxs = (tt===8||tt===9||tt===2||tt===10) ? data[rd++] : 0;
+      var tt = data[ofs], x = data[ofs+1], y = data[ofs+2]; ofs += 3;
+      var ts = codeMap[tt]; // type of sprite.
+      var mins = (tt===8||tt===9) ? data[ofs++] : 0;
+      var maxs = (tt===8||tt===9||tt===2||tt===10) ? data[ofs++] : 0;
       var speed = 0;
       if (tt===2) speed = 2.5 * (60/1000);
       if (tt===8) speed = 2 * (60/1000);
