@@ -3,6 +3,8 @@ function getElem(id) { return document.getElementById(id); }
 function showStatus(msg) { getElem('p').firstChild.nodeValue = msg; }
 function removeElem(id,e) { (e=getElem(id)).parentNode.removeChild(e); }
 
+var redMark, blueMark; // debugging.
+
 function initGame() {
   showStatus( 'Loading...' );
 
@@ -22,6 +24,7 @@ function initGame() {
   var lines = [];
   var sprites = [];
   var player = null;
+  var map = null; // current map.
   var panX=0, panY=0, panSpd = 1;
   var loadLatch=false, levelNum=0;
 
@@ -49,7 +52,7 @@ function initGame() {
 
     // move the player.
     if (player) {
-      walkMove(player, dt);
+      walkMove(player, dt, map, movers);
     }
 
     // center the camera on the player.
@@ -141,6 +144,10 @@ function initGame() {
   var ropeImg = images.get('/assets/rope.png', {opaque:false,wrap:true});
   var sliverImg = images.get('/assets/sliver.png', {opaque:false,wrap:true});
 
+  var redImg = images.get('/assets/red.png', {opaque:false,wrap:false});
+  var blueImg = images.get('/assets/blue.png', {opaque:false,wrap:false});
+  var redTS, blueTS;
+
   // wait for all the images to finish loading.
   images.wait(startGame);
 
@@ -149,8 +156,9 @@ function initGame() {
 
   var esmeWalk = [ 1, 300, 2, 300, 3, 300, 2, 300 ];
   var esmeWalkIdle = [ 0, 1000 ];
-  var esmeClimb = [ 4, 300, 4, 300 ];
-  var esmeClimbIdle = [ 4, 1000 ];
+  var esmeClimb = [ 5, 220, 6, 230 ];
+  var esmeClimbIdle = [ 5, 1000 ];
+  var esmeJump = [ 4, 1000 ];
   var torchAnim = [ 0, 200, 1, 200, 2, 200 ];
   var springIdle = [ 0, 1000 ];
   var springBounce = [ 3, 200, 2, 200, 1, 200, 0, 1000 ];
@@ -162,12 +170,15 @@ function initGame() {
     tileSet = TileSet(tileImg, 32);
 
     // generate frame sets.
-    belleTS   = FrameSet(renderer, belleImg,   32, 32, 6, 0);
+    belleTS   = FrameSet(renderer, belleImg,   32, 32, 7, 0);
     torchTS   = FrameSet(renderer, torchImg,   32, 32, 3, 0);
     springTS  = FrameSet(renderer, springImg,  32, 32, 4, 0);
     crawlerTS = FrameSet(renderer, crawlerImg, 32, 32, 1, 0);
     batTS     = FrameSet(renderer, batImg,     32, 32, 2, 0);
     spiderTS  = FrameSet(renderer, spiderImg,  32, 32, 1, 0);
+
+    redTS = FrameSet(renderer, redImg,  32, 32, 1, 0);
+    blueTS = FrameSet(renderer, blueImg,  32, 32, 1, 0);
 
     // send a room request to the server.
     var socket = GS.w; // injected globals.
@@ -235,6 +246,7 @@ function initGame() {
       quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
       s.geom.update(quadVerts);
     };
+    spr.is_rope = true; // for walkMove.
     return ofs+1;
   }
 
@@ -297,16 +309,17 @@ function initGame() {
 
   function spawnPlayer(x, y, data, ofs) {
     var spr = addSprite(belleTS, x, y, esmeWalkIdle);
-    spr.posX = x;
-    spr.posY = y;
+    spr.accX = 0;
+    spr.accY = 0;
     spr.velX = 0;
     spr.velY = 0;
     spr.onground = true;
-    spr.onrope = true;
+    spr.onrope = false;
     spr.walkAnim = esmeWalk;
     spr.walkIdle = esmeWalkIdle;
     spr.climbAnim = esmeClimb;
     spr.climbIdle = esmeClimbIdle;
+    spr.jumpAnim = esmeJump;
     player = spr; // update.
     return ofs;
   }
@@ -333,6 +346,10 @@ function initGame() {
     lines = [];
     sprites = [];
     player = null;
+    map = data;
+
+    redMark = addSprite(redTS, 0, 0, spiderIdle);
+    blueMark = addSprite(blueTS, 0, 0, spiderIdle);
 
     // generate geometry for all non-empty room tiles.
     ofs = MapGeom(roomGeom, tileSet, data, ofs, map_w, map_h);

@@ -29,6 +29,7 @@ function GLRenderer() {
     // read window.devicePixelRatio, scale the canvas.width/height by that factor,
     // set its style to the original window width and height (both in CSS pixels)
     var dpr = window.devicePixelRatio || 1;
+    log("dpr: "+dpr);
     var width = window.innerWidth || (document.documentElement ? document.documentElement.offsetWidth : document.body.offsetWidth);
     var height = window.innerHeight || (document.documentElement ? document.documentElement.offsetHeight : document.body.offsetHeight);
     var backingWidth = dpr * width;
@@ -43,6 +44,12 @@ function GLRenderer() {
     }
 
     projMatrix = new FloatArray(ortho(-backingWidth/2, backingWidth/2, -backingHeight/2, backingHeight/2, -1, 1));
+
+    // ensure exact pixel alignment if the backing width or height is an odd number.
+    // offset by half a pixel, and hide the extra pixel from the rest of the app.
+    if (backingWidth%2!==0) projMatrix[12] += 0.5/backingWidth;   // half a pixel wide.
+    if (backingHeight%2!==0) projMatrix[13] += 0.5/backingHeight; // half a pixel high.
+
     api.width = backingWidth;
     api.height = backingHeight;
   }
@@ -287,9 +294,6 @@ function GLRenderer() {
 
 
   // ---- textures.
-
-  // var eps = 0.5001;
-  // var wholeTexture = [0,1, 1,1, 0,0, 1,0];
 
   function newTexture(img) {
     // return a wrapper object that manages the GL texture.
