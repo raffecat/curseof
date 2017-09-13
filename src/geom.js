@@ -1,4 +1,18 @@
 
+function TileSet(image, tileSize) {
+  // set of tile coords for MapGeom.
+  var img_w = image.width, img_h = image.height;
+  var ts_w = Math.floor(img_w/tileSize), ts_h = Math.floor(img_h/tileSize);
+  var ts_u = tileSize/img_w, ts_v = tileSize/img_h;
+  var tileSet = [];
+  for (var y=0; y<ts_h; y++) {
+    for (var x=0; x<ts_w; x++) {
+      tileSet.push({ u0: x * ts_u, v0: (y+1) * ts_v, u1: (x+1) * ts_u, v1: y * ts_v });
+    }
+  }
+  return tileSet;
+}
+
 function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
   // generate geometry for all non-empty room tiles.
   var drawSize = 32;
@@ -34,20 +48,8 @@ function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
   return ofs;
 }
 
-function TileSet(image, tileSize) {
-  var img_w = image.width, img_h = image.height;
-  var ts_w = Math.floor(img_w/tileSize), ts_h = Math.floor(img_h/tileSize);
-  var ts_u = tileSize/img_w, ts_v = tileSize/img_h;
-  var tileSet = [];
-  for (var y=0; y<ts_h; y++) {
-    for (var x=0; x<ts_w; x++) {
-      tileSet.push({ u0: x * ts_u, v0: (y+1) * ts_v, u1: (x+1) * ts_u, v1: y * ts_v });
-    }
-  }
-  return tileSet;
-}
-
-function FrameSet(renderer, image, tileW, tileH, num_frames, yOfs, ticks) {
+function FrameSet(renderer, image, tileW, tileH, num_frames, yOfs) {
+  // generate geometry for each frame in a strip of sprite frames.
   var img_w = image.width, img_h = image.height;
   var ts_u = tileW/img_w;
   var L = -tileW/2, B = -tileH/2; // bottom-left of this tile.
@@ -73,9 +75,9 @@ function FrameSet(renderer, image, tileW, tileH, num_frames, yOfs, ticks) {
     vofs += 4; // have used 4 vertices.
     // generate frame.
     frames.push({
-      iofs: (base*2), inum: (iofs-base), ticks: ticks
+      iofs: (base*2), inum: (iofs-base)
     });
   }
   var geom = renderer.newGeometry(verts, inds); // num_frames * 16, num_frames * 6
-  return { frames:frames, image:image, geom:geom };
+  return { frames:frames, tex:image.tex, geom:geom };
 }

@@ -26,7 +26,7 @@ function initGame() {
   var loadLatch=false, levelNum=0;
 
   function render(dt) {
-    if (!(ready && tileImg.texture)) return;
+    if (!(ready && tileImg.tex)) return;
 
     // cycle through maps with 'M' for testing.
     if (keys[77]) {
@@ -64,12 +64,12 @@ function initGame() {
 
     // render the room geometry.
     renderer.setViewMatrix(cameraTransform);
-    roomGeom.draw(tileImg.texture);
+    roomGeom.draw(tileImg.tex);
 
     // render all lines (in world space)
     for (var i=0; i<lines.length; i++) {
       var s = lines[i];
-      s.geom.draw(s.image.texture, 0, 6);
+      s.geom.draw(s.tex, 0, 6);
     }
 
     // render all sprites.
@@ -81,7 +81,7 @@ function initGame() {
       renderer.setViewMatrix(spriteTransform);
       //log(i, s.index, s.remain, s.loop);
       var frame = s.frames[s.index];
-      s.geom.draw(s.image.texture, frame.iofs, frame.inum);
+      s.geom.draw(s.tex, frame.iofs, frame.inum);
     }
   }
 
@@ -112,7 +112,7 @@ function initGame() {
         obj.data = img;
         obj.width = img.width;
         obj.height = img.height;
-        obj.texture = renderer.newTexture(obj);
+        obj.tex = renderer.newTexture(obj);
       }
       done();
     });
@@ -144,16 +144,27 @@ function initGame() {
   var tileSet = [];
   var codeMap = {};
 
+  var esmeWalk = [ 1, 300, 2, 300, 3, 300, 2, 300 ];
+  var esmeWalkIdle = [ 0, 1000 ];
+  var esmeClimb = [ 4, 300, 4, 300 ];
+  var esmeClimbIdle = [ 4, 1000 ];
+  var torchAnim = [ 0, 200, 1, 200, 2, 200 ];
+  var springIdle = [ 0, 1000 ];
+  var springBounce = [ 3, 200, 2, 200, 1, 200, 0, 1000 ];
+  var crawlerWalk = [ 0, 1000 ];
+  var batFly = [ 0, 500, 1, 500 ];
+  var spiderIdle = [ 0, 1000 ];
+
   function startGame() {
     tileSet = TileSet(tileImg, 32);
 
     // generate frame sets.
-    belleTS   = FrameSet(renderer, belleImg,   32, 32, 6, 0, 1000);
-    torchTS   = FrameSet(renderer, torchImg,   32, 32, 3, 0, 200);
-    springTS  = FrameSet(renderer, springImg,  32, 32, 4, 0, 1000);
-    crawlerTS = FrameSet(renderer, crawlerImg, 32, 32, 1, 0, 1000);
-    batTS     = FrameSet(renderer, batImg,     32, 32, 2, 0, 500);
-    spiderTS  = FrameSet(renderer, spiderImg,  32, 32, 1, 0, 1000);
+    belleTS   = FrameSet(renderer, belleImg,   32, 32, 6, 0);
+    torchTS   = FrameSet(renderer, torchImg,   32, 32, 3, 0);
+    springTS  = FrameSet(renderer, springImg,  32, 32, 4, 0);
+    crawlerTS = FrameSet(renderer, crawlerImg, 32, 32, 1, 0);
+    batTS     = FrameSet(renderer, batImg,     32, 32, 2, 0);
+    spiderTS  = FrameSet(renderer, spiderImg,  32, 32, 1, 0);
 
     codeMap = {
       "1": torchTS,
@@ -204,7 +215,7 @@ function initGame() {
         // Rope.
         var speed = 2.5 * (60/1000);
         var geom = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
-        var spr = { x:x, image:ropeImg, geom:geom, mins:y, maxs:maxs, pos:y, speed:-speed };
+        var spr = { x:x, tex:ropeImg.tex, geom:geom, mins:y, maxs:maxs, pos:y, speed:-speed };
         movers.push(spr); // update.
         lines.push(spr);  // render.
         spr.update = function(s, dt) {
@@ -235,13 +246,18 @@ function initGame() {
         if (tt===48) speed = 2 * (60/1000);
         var ts = codeMap[tt]; // type of sprite.
         if (ts) {
-          var spr = { x:x, y:y, image:ts.image, geom:ts.geom, flip:false,
+          var spr = { x:x, y:y, tex:ts.tex, geom:ts.geom, flip:false,
                       mins:mins, maxs:maxs, pos:0, speed:-speed, update:null,
-                      frames:ts.frames, index:0, remain:ts.frames[0].ticks, loop:true };
+                      frames:ts.frames, index:0 };
           sprites.push(spr); // render.
           // log("spawn", i, ts.frames[0].ticks);
-          if (tt===8||tt===9) {
+          if (tt===1) { // Torch.
+            setAnim(spr, torchAnim);
+          } else if (tt===5) { // Spring.
+            setAnim(spr, springBounce);
+          } else if (tt===8||tt===9) {
             // Crawler, Bat.
+            if (tt===8) setAnim(spr, crawlerWalk); else setAnim(spr, batFly);
             movers.push(spr); // update.
             spr.pos = spr.x; // moves along X axis.
             spr.update = function(s, dt){
@@ -259,8 +275,9 @@ function initGame() {
             };
           } else if (tt===10) {
             // Spider.
+            setAnim(spr, spiderIdle);
             spr.thread = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
-            lines.push({ image:sliverImg, geom:spr.thread });  // render.
+            lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
             movers.push(spr); // update.
             spr.mins = spr.y; // current Y is the lowest value.
             spr.pos = spr.y; // moves along Y axis.
@@ -294,6 +311,11 @@ function initGame() {
             spr.velY = 0;
             spr.onground = true;
             spr.onrope = true;
+            spr.walkAnim = esmeWalk;
+            spr.walkIdle = esmeWalkIdle;
+            spr.climbAnim = esmeClimb;
+            spr.climbIdle = esmeClimbIdle;
+            setAnim(spr, esmeWalkIdle);
             player = spr; // update.
           }
         }

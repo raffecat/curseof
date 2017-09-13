@@ -1,28 +1,38 @@
 
+function setAnim(ent, anim) {
+  // start or restart an animation.
+  ent.anim = anim;
+  ent.animOfs = 0;       // current animation entry.
+  ent.animTr = anim[1];  // time remaining on current frame.
+  ent.index = anim[0];   // current frame index.
+}
+
+function toAnim(ent, anim) {
+  // change animation without restarting.
+  if (ent.anim !== anim) {
+    setAnim(ent, anim);
+  }
+}
+
 function animateEnts(ents, delta) {
   for (var i=0; i<ents.length; i++) {
     var ent = ents[i];
     var dt = delta;
-    var frames = ent.frames; // animation frames.
-    var index = ent.index; // current frame index.
-    var remain = ent.remain; // time remaining on current frame.
-    while (dt >= remain) {
+    var anim = ent.anim;        // animation frames [index, ticks, ...]
+    var animOfs = ent.animOfs;  // current animation entry.
+    var animTr = ent.animTr;    // time remaining on current frame.
+    while (dt >= animTr) {
       // advance to the next frame.
-      dt -= remain;
-      index += 1;
-      if (index >= frames.length) {
-        if (ent.loop) {
-          index = 0; // loop the animation.
-        } else {
-          index = frames.length-1; // stay on the last frame.
-          remain = 1000; // big number to avoid spinning this loop.
-          break;
-        }
+      dt -= animTr;
+      animOfs += 2;
+      if (animOfs >= anim.length) {
+        animOfs = 0;            // TODO: include a loop-point in the anim.
       }
-      remain = frames[index].ticks; // duration of this frame.
+      animTr = anim[animOfs+1]; // duration of this frame.
     }
-    ent.index = index;
-    ent.remain = remain - dt; // remaining for next frame.
+    ent.animOfs = animOfs;      // current animation entry.
+    ent.animTr = animTr - dt;   // time remaining for next frame.
+    ent.index = anim[animOfs];  // current frame to render.
   }
 }
 
@@ -55,29 +65,42 @@ function walkMove(actor, dt) {
   var up = keys[87]; // W.
   if (actor.onrope) {
     if (up) {
+      toAnim(actor, actor.climbAnim);
       actor.velY = climbSpeed;
     } else if (down) {
+      toAnim(actor, actor.climbAnim);
       actor.velY = -climbSpeed;
     } else {
-      actor.velY = 0; // stop falling.
+      if (actor.velY != 0) {
+        // stop falling.
+        toAnim(actor, actor.climbIdle);
+        actor.velY = 0;
+      }
     }
   } else {
     actor.velY -= gravity;
   }
   if (right) {
+    toAnim(actor, actor.walkAnim);
     actor.flip = false;
     actor.velX = walkSpeed;
   } else if (left) {
+    toAnim(actor, actor.walkAnim);
     actor.flip = true;
     actor.velX = -walkSpeed;
   } else {
-    actor.velX = 0;
+    if (actor.velX != 0) {
+      // stop walking.
+      toAnim(actor, actor.walkIdle);
+      actor.velX = 0;
+    }
   }
   if (actor.onground) {
     if (jump) {
       //actor.onground = false;
       //actor.onrope = false;
       actor.velY = jumpVelocity;
+      toAnim(actor, actor.walkAnim);
     }
   }
   if (actor.velX > maxVelX) actor.velX = maxVelX;
