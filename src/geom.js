@@ -15,6 +15,8 @@ function TileSet(image, tileSize) {
 
 function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
   // generate geometry for all non-empty room tiles.
+  // maps start at (0,0) in the bottom-left corner so that hit-testing
+  // can map sprite coords directly to (+X,+Y) cells of the map.
   var drawSize = 32;
   var verts = new FloatArray(4 * 4 * map_w * map_h); // [x,y,u,v] * [L,B,R,T] * w * h
   var inds = new Uint16Array(6 * map_w * map_h);     // [0,1,2,1,3,2] * w * h
@@ -25,8 +27,8 @@ function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
       if (v) { // tile zero is never rendered.
         var t = tileSet[v];
         if (t) { // protect against out-of-bounds.
-          var L = x * drawSize, T = -y * drawSize; // top-left of this tile.
-          var R = L + drawSize, B = T - drawSize; // bottom-right of this tile.
+          var L = x * drawSize, B = y * drawSize; // bottom-left of this tile.
+          var R = L + drawSize, T = B + drawSize; // top-right of this tile.
           var u0 = t.u0, v0 = t.v0, u1 = t.u1, v1 = t.v1;
           // log("tile", v, L,B,R,T, u0,v0,u1,v1);
           verts[wr+0] = L;  verts[wr+1] = B;  verts[wr+2] = u0;  verts[wr+3] = v0;

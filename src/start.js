@@ -22,7 +22,7 @@ function initGame() {
   var lines = [];
   var sprites = [];
   var player = null;
-  var panX=0, panY=0, spd = 1;
+  var panX=0, panY=0, panSpd = 1;
   var loadLatch=false, levelNum=0;
 
   function render(dt) {
@@ -41,13 +41,6 @@ function initGame() {
       loadLatch = false;
     }
 
-    // camera panning with arrow keys (hold shift to speed up)
-    var sspd = keys[16] ? (spd * 10) : spd;
-    if (keys[37]) panX += dt * sspd; else if (keys[39]) panX -= dt * sspd;
-    if (keys[40]) panY += dt * sspd; else if (keys[38]) panY -= dt * sspd;
-    cameraTransform[12] = Math.floor(panX);
-    cameraTransform[13] = Math.floor(panY);
-
     // update all movers.
     for (var i=0; i<movers.length; i++) {
       var s = movers[i];
@@ -58,6 +51,18 @@ function initGame() {
     if (player) {
       walkMove(player, dt);
     }
+
+    // center the camera on the player.
+    if (keys[16]) {
+      // camera panning with arrow keys (hold shift to pan)
+      if (keys[37]) panX += dt * panSpd; if (keys[39]) panX -= dt * panSpd;
+      if (keys[40]) panY += dt * panSpd; if (keys[38]) panY -= dt * panSpd;
+    } else if (player) {
+      panX = -player.x;
+      panY = -player.y;
+    }
+    cameraTransform[12] = Math.floor(panX);
+    cameraTransform[13] = Math.floor(panY);
 
     // animate all sprites.
     animateEnts(sprites, dt);
@@ -79,7 +84,6 @@ function initGame() {
       spriteTransform[12] = cameraTransform[12] + s.x;
       spriteTransform[13] = cameraTransform[13] + s.y;
       renderer.setViewMatrix(spriteTransform);
-      //log(i, s.index, s.remain, s.loop);
       var frame = s.frames[s.index];
       s.geom.draw(s.tex, frame.iofs, frame.inum);
     }
@@ -142,7 +146,6 @@ function initGame() {
 
   var belleTS, torchTS, springTS, crawlerTS, batTS, spiderTS;
   var tileSet = [];
-  var codeMap = {};
 
   var esmeWalk = [ 1, 300, 2, 300, 3, 300, 2, 300 ];
   var esmeWalkIdle = [ 0, 1000 ];
@@ -166,20 +169,157 @@ function initGame() {
     batTS     = FrameSet(renderer, batImg,     32, 32, 2, 0);
     spiderTS  = FrameSet(renderer, spiderImg,  32, 32, 1, 0);
 
-    codeMap = {
-      "1": torchTS,
-      "5": springTS,
-      "8": crawlerTS,
-      "9": batTS,
-      "10": spiderTS,
-      "48": belleTS,
-    };
-
     // send a room request to the server.
     var socket = GS.w; // injected globals.
     socket.on('r', loadRoom);
     socket.emit('r',0);
   }
+
+  function addSprite(ts, x, y, anim) {
+    var spr = { x:x, y:y, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
+    setAnim(spr, anim);
+    sprites.push(spr); // render.
+    return spr;
+  }
+
+  function pathLeftRight(spr, left, right, speed) {
+    movers.push(spr); // update.
+    spr.mins = left;
+    spr.maxs = right;
+    spr.pos = spr.x; // moves along X axis.
+    spr.speed = speed;
+    spr.update = function(s, dt) {
+      s.pos += dt * s.speed;
+      if (s.pos <= s.mins) {
+        s.pos = s.mins; // FIXME: inaccurate.
+        s.speed = -s.speed;
+        s.flip = true;
+      } else if (s.pos >= s.maxs) {
+        s.pos = s.maxs; // FIXME: inaccurate.
+        s.speed = -s.speed;
+        s.flip = false;
+      }
+      s.x = Math.floor(s.pos); // snap to nearest pixel.
+    };
+  }
+
+  function spawnTorch(x, y, data, ofs) {
+    addSprite(torchTS, x, y, torchAnim);
+    return ofs;
+  }
+
+  function spawnRope(x, y, data, ofs) {
+    var bottom = y - data[ofs]; // rope height.
+    var speed = 2.5 * (60/1000);
+    var geom = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
+    var spr = { x:x, tex:ropeImg.tex, geom:geom, mins:bottom, maxs:y, pos:bottom, speed:-speed };
+    movers.push(spr); // update.
+    lines.push(spr);  // render.
+    spr.update = function(s, dt) {
+      s.pos += dt * s.speed;
+      if (s.pos <= s.mins) {
+        s.pos = s.mins; // FIXME: inaccurate.
+        s.speed = -s.speed;
+      } else if (s.pos >= s.maxs) {
+        s.pos = s.maxs; // FIXME: inaccurate.
+        s.speed = -s.speed;
+      }
+      // update the rope geometry.
+      var hw = 4, rope_v = 1/32;
+      var L = s.x - hw + 1, R = s.x + hw + 1;
+      var T = s.maxs, B = Math.floor(s.pos); // snap to nearest pixel.
+      var v1 = (T-B) * rope_v; // repeat texture.
+      quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
+      quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
+      quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
+      quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
+      s.geom.update(quadVerts);
+    };
+    return ofs+1;
+  }
+
+  function spawnSpring(x, y, data, ofs) {
+    addSprite(springTS, x, y, springBounce);
+    return ofs;
+  }
+
+  function spawnCrawler(x, y, data, ofs) {
+    var left = data[ofs], right = data[ofs+1];
+    var speed = 2 * (60/1000);
+    var spr = addSprite(crawlerTS, x, y, crawlerWalk);
+    pathLeftRight(spr, left, right, speed);
+    return ofs+2;
+  }
+
+  function spawnBat(x, y, data, ofs) {
+    var left = data[ofs], right = data[ofs+1];
+    var speed = 3 * (60/1000);
+    var spr = addSprite(batTS, x, y, batFly);
+    pathLeftRight(spr, left, right, speed);
+    return ofs+2;
+  }
+
+  function spawnSpider(x, y, data, ofs) {
+    var bottom = y - data[ofs]; // travel height.
+    var speed = 1 * (60/1000);
+    var spr = addSprite(spiderTS, x, y, spiderIdle);
+    spr.thread = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
+    lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
+    movers.push(spr); // update.
+    spr.mins = bottom;
+    spr.maxs = spr.y;
+    spr.pos = bottom; // moves along Y-axis.
+    spr.speed = -speed;
+    spr.update = function(s, dt) {
+      // move the spider.
+      s.pos += dt * s.speed;
+      if (s.pos <= s.mins) {
+        s.pos = s.mins; // FIXME: inaccurate.
+        s.speed = -s.speed;
+      } else if (s.pos >= s.maxs) {
+        s.pos = s.maxs; // FIXME: inaccurate.
+        s.speed = -s.speed;
+      }
+      s.y = Math.floor(s.pos); // snap to nearest pixel.
+      // update the thread geometry.
+      var hw = 1, rope_v = 1/32;
+      var L = s.x - hw, R = s.x + hw;
+      var T = s.maxs + 16, B = s.y; // snap to nearest pixel.
+      var v1 = (T-B) * rope_v; // repeat texture.
+      quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
+      quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
+      quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
+      quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
+      s.thread.update(quadVerts);
+    };
+    return ofs+1;
+  }
+
+  function spawnPlayer(x, y, data, ofs) {
+    var spr = addSprite(belleTS, x, y, esmeWalkIdle);
+    spr.posX = x;
+    spr.posY = y;
+    spr.velX = 0;
+    spr.velY = 0;
+    spr.onground = true;
+    spr.onrope = true;
+    spr.walkAnim = esmeWalk;
+    spr.walkIdle = esmeWalkIdle;
+    spr.climbAnim = esmeClimb;
+    spr.climbIdle = esmeClimbIdle;
+    player = spr; // update.
+    return ofs;
+  }
+
+  var codeMap = {
+    "1": spawnTorch,
+    "2": spawnRope,
+    "5": spawnSpring,
+    "8": spawnCrawler,
+    "9": spawnBat,
+    "10": spawnSpider,
+    "48": spawnPlayer,
+  };
 
   function loadRoom(data) {
     // log("Room:", data.width, data.height, data.map, data.spawn);
@@ -188,17 +328,11 @@ function initGame() {
     var map_w = data[0], map_h = data[1], ofs = 2;
     var drawSize = 32;
 
-    // origin is the top-left corner of the map.
-    var ox = -Math.floor(drawSize * map_w * 0.5);
-    var oy = Math.floor(drawSize * map_h * 0.5);
-
     // reset room state.
     movers = [];
     lines = [];
     sprites = [];
     player = null;
-    panX = ox;
-    panY = oy;
 
     // generate geometry for all non-empty room tiles.
     ofs = MapGeom(roomGeom, tileSet, data, ofs, map_w, map_h);
@@ -208,118 +342,18 @@ function initGame() {
     for (var i=0; i<num_spawn; i++) {
       // NB. sprites are relative to the top-left corner of the map (y is always negative)
       var tt = data[ofs], x = data[ofs+1], y = data[ofs+2]; ofs += 3;
-      var mins = (tt===8||tt===9) ? data[ofs++] : 0;
-      var maxs = (tt===8||tt===9||tt===2||tt===10) ? data[ofs++] : 0;
-      // spawn.
-      if (tt===2) {
-        // Rope.
-        var speed = 2.5 * (60/1000);
-        var geom = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
-        var spr = { x:x, tex:ropeImg.tex, geom:geom, mins:y, maxs:maxs, pos:y, speed:-speed };
-        movers.push(spr); // update.
-        lines.push(spr);  // render.
-        spr.update = function(s, dt) {
-          s.pos += dt * s.speed;
-          if (s.pos <= s.mins) {
-            s.pos = s.mins; // FIXME: inaccurate.
-            s.speed = -s.speed;
-          } else if (s.pos >= s.maxs) {
-            s.pos = s.maxs; // FIXME: inaccurate.
-            s.speed = -s.speed;
-          }
-          // update the rope geometry.
-          var hw = 4, rope_v = 1/32;
-          var L = s.x - hw + 1, R = s.x + hw + 1;
-          var T = s.maxs, B = Math.floor(s.pos); // snap to nearest pixel.
-          var v1 = (T-B) * rope_v; // repeat texture.
-          quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
-          quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
-          quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
-          quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
-          s.geom.update(quadVerts);
-        };
-      } else {
-        var speed = 0;
-        if (tt===8) speed = 2 * (60/1000);
-        if (tt===9) speed = 3 * (60/1000);
-        if (tt===10) speed = 1 * (60/1000);
-        if (tt===48) speed = 2 * (60/1000);
-        var ts = codeMap[tt]; // type of sprite.
-        if (ts) {
-          var spr = { x:x, y:y, tex:ts.tex, geom:ts.geom, flip:false,
-                      mins:mins, maxs:maxs, pos:0, speed:-speed, update:null,
-                      frames:ts.frames, index:0 };
-          sprites.push(spr); // render.
-          // log("spawn", i, ts.frames[0].ticks);
-          if (tt===1) { // Torch.
-            setAnim(spr, torchAnim);
-          } else if (tt===5) { // Spring.
-            setAnim(spr, springBounce);
-          } else if (tt===8||tt===9) {
-            // Crawler, Bat.
-            if (tt===8) setAnim(spr, crawlerWalk); else setAnim(spr, batFly);
-            movers.push(spr); // update.
-            spr.pos = spr.x; // moves along X axis.
-            spr.update = function(s, dt){
-              s.pos += dt * s.speed;
-              if (s.pos <= s.mins) {
-                s.pos = s.mins; // FIXME: inaccurate.
-                s.speed = -s.speed;
-                s.flip = true;
-              } else if (s.pos >= s.maxs) {
-                s.pos = s.maxs; // FIXME: inaccurate.
-                s.speed = -s.speed;
-                s.flip = false;
-              }
-              s.x = Math.floor(s.pos); // snap to nearest pixel.
-            };
-          } else if (tt===10) {
-            // Spider.
-            setAnim(spr, spiderIdle);
-            spr.thread = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
-            lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
-            movers.push(spr); // update.
-            spr.mins = spr.y; // current Y is the lowest value.
-            spr.pos = spr.y; // moves along Y axis.
-            spr.update = function(s, dt) {
-              // move the spider.
-              s.pos += dt * s.speed;
-              if (s.pos <= s.mins) {
-                s.pos = s.mins; // FIXME: inaccurate.
-                s.speed = -s.speed;
-              } else if (s.pos >= s.maxs) {
-                s.pos = s.maxs; // FIXME: inaccurate.
-                s.speed = -s.speed;
-              }
-              s.y = Math.floor(s.pos); // snap to nearest pixel.
-              // update the thread geometry.
-              var hw = 1, rope_v = 1/32;
-              var L = s.x - hw, R = s.x + hw;
-              var T = s.maxs + 16, B = s.y; // snap to nearest pixel.
-              var v1 = (T-B) * rope_v; // repeat texture.
-              quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
-              quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
-              quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
-              quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
-              s.thread.update(quadVerts);
-            };
-          } else if (tt===48) {
-            // player spawn point.
-            spr.posX = spr.x;
-            spr.posY = spr.y;
-            spr.velX = 0;
-            spr.velY = 0;
-            spr.onground = true;
-            spr.onrope = true;
-            spr.walkAnim = esmeWalk;
-            spr.walkIdle = esmeWalkIdle;
-            spr.climbAnim = esmeClimb;
-            spr.climbIdle = esmeClimbIdle;
-            setAnim(spr, esmeWalkIdle);
-            player = spr; // update.
-          }
-        }
-      }
+      var spawn = codeMap[tt]; // type of sprite.
+      if (spawn) {
+        ofs = spawn(x, y, data, ofs);
+      } else { log("missing spawn: "+tt); break; }
+    }
+
+    // center the camera on the middle of the map.
+    if (!player) {
+      // origin is the bottom-left corner of the map.
+      // translate the scene by negative half map width and height.
+      panX = -Math.floor(drawSize * map_w * 0.5);
+      panY = -Math.floor(drawSize * map_h * 0.5);
     }
 
     if (!ready) hideStatus(); // finished loading.

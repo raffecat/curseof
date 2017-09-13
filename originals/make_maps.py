@@ -51,24 +51,24 @@ def convert(rooms, filename, roomId):
     spawns = [] # TODO: sort spawns by type (for render batching)
     for y in xrange(0,map_h):
         for x in xrange(0,map_w):
-            r,g,b,a = img.get_at((L+x,T+y))
+            r,g,b,a = img.get_at((L+x,B-y))
             tup = DEFS.get(b)
             if tup:
                 name, scan, marker = tup
-                xpos = x * 32 + 16 # horizontal center of tile.
-                ypos = -y * 32 - 16 # vertical center of tile (relative to top-left corner of the map)
+                xpos = x * 32 + 16 # horizontal center of tile (from left, +X)
+                ypos = y * 32 + 16 # vertical center of tile (from bottom, +Y)
                 if scan == 'DR':
                     # rope must render from the top of the top tile to the bottom of the bottom tile.
-                    down = findTile(img, L+x, T+y, 0, 1, marker, name)
-                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos-down-16, ypos+16))
+                    down = findTile(img, L+x, B-y, 0, 1, marker, name)
+                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos+16, down+32))
                 elif scan == 'D':
                     # spider must move from the middle of the top tile to the middle of the bottom tile.
                     # but the strand must extend to the top of the top tile (use a bg tile?)
-                    down = findTile(img, L+x, T+y, 0, 1, marker, name)
-                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos-down, ypos))
+                    down = findTile(img, L+x, B-y, 0, 1, marker, name)
+                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos, down))
                 elif scan == 'LR':
-                    left = findTile(img, L+x, T+y, -1, 0, marker, name)
-                    right = findTile(img, L+x, T+y, 1, 0, marker, name)
+                    left = findTile(img, L+x, B-y, -1, 0, marker, name)
+                    right = findTile(img, L+x, B-y, 1, 0, marker, name)
                     spawns.append('    %d,%d,%d,%d,%d' % (b, xpos, ypos, xpos-left, xpos+right))
                 else:
                     spawns.append('    %d,%d,%d' % (b, xpos, ypos))

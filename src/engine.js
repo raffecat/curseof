@@ -36,16 +36,41 @@ function animateEnts(ents, delta) {
   }
 }
 
-/*
-function renderEnts(ents, gl) {
-  for (var i=0; i<ents.length; i++) {
-    var ent = ents[i];
-    var frame = ent.frames[ent.index];
-    // all triangles for all quads/shapes in one frame are batched together.
-    gl.drawRangeElements(gl.TRIANGLES, frame.firstIdx, frame.lastIdx, frame.numIdx, gl.UNSIGNED_SHORT, frame.idxOfs);
+var solidTiles = { 2:1, 3:1, 4:1, 5:1, 12:1, 13:1, 18:1, 19:1, 34:1, 35:1, 68:1, 69:1, 70:1 };
+var climbTiles = { 8:1, 10:1 };
+var painTiles = { 1:1, 9:1, 11:1, 26:1 };
+
+function hitTestMap(map, L, B, R, T, res) {
+  // hit-test a rect against the tile map, returning min/max height.
+  var w = map[0], h = map[1], base = map[2];
+  var x0 = Math.max(0, Math.floor(L / 32));    // min 0
+  var x1 = Math.min(Math.floor(R / 32), w-1);  // max w-1
+  var y0 = Math.max(0, Math.floor(B / 32));    // min 0
+  var y1 = Math.min(Math.floor(T / 32), h-1);  // max h-1
+  var minL = R, minB = T, minR = L, minT = B;
+  var climb = false, pain = false;
+  for (var y = y0; y <= y1; y++) {
+    var row = y * w;
+    for (var x = x0; x <= x1; x++) {
+      var t = map[row+x];
+      if (solidTiles[t]) {
+        // determine the edges of the solid tile.
+        var tileL = x * 32, tileB = y * 32, tileR = tileL + 32, tileT = tileB + 32;
+        // record the minimum and maximum solid edges found.
+        if (minL > tileL) minL = tileL;
+        if (minB > tileB) minB = tileB;
+        if (minR < tileR) minR = tileR;
+        if (minT < tileT) minT = tileT;
+      }
+      // record the tile tags found.
+      if (climbTiles[t]) climb = true;
+      if (painTiles[t]) pain = true;
+    }
   }
+  res.minL = minL; res.minB = minB;
+  res.minR = minR; res.minT = minT;
+  res.climb = climb; res.pain = pain;
 }
-*/
 
 var jumpVelocity = 6 * (60/1000);
 var gravity = 1 * (60/1000);
