@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import pygame
+#import json
 
 DEFS = {
     1: ('Torch', '', 0),
@@ -9,7 +10,26 @@ DEFS = {
     8: ('Crawler', 'LR', 16),
     9: ('Bat', 'LR', 16),
     10: ('Spider', 'D', 12),   # 10 (top) -> 12 (spider)
-    48: ('Belle', '', 0),
+    # exits.
+    24: ('Exit', 'X', 0),
+    25: ('Exit', 'X', 1),
+    26: ('Exit', 'X', 2),
+    27: ('Exit', 'X', 3),
+    28: ('Exit', 'X', 4),
+    29: ('Exit', 'X', 5),
+    30: ('Exit', 'X', 6),
+    31: ('Exit', 'X', 7),
+    # entrances.
+    32: ('Entry', 'E', 0),
+    33: ('Entry', 'E', 1),
+    34: ('Entry', 'E', 2),
+    35: ('Entry', 'E', 3),
+    36: ('Entry', 'E', 4),
+    37: ('Entry', 'E', 5),
+    38: ('Entry', 'E', 6),
+    39: ('Entry', 'E', 7),
+    # player start.
+    48: ('Belle', 'P', 0),
 }
 
 def findTile(img, x, y, dx, dy, marker, name):
@@ -26,11 +46,14 @@ def findTile(img, x, y, dx, dy, marker, name):
             print "missing end-marker %d for %s at [%d,%d]" % (marker,name,ox,oy)
             return 0
 
-def convert(rooms, filename, roomId):
+def convert(rooms, filename, roomId, exits):
     print filename
     img = pygame.image.load(filename)
     w,h = img.get_size()
     L,T,R,B = w,h,0,0
+
+    for i in xrange(1,len(exits),2):
+        exits[i] -= 1 # remap 1-based entrance index to 0-based.
 
     for y in xrange(0,h):
         for x in xrange(0,w):
@@ -45,10 +68,13 @@ def convert(rooms, filename, roomId):
     map_w = R - L + 1
     map_h = B - T + 1
 
-    rx = 0
-    ry = 0
+    startX = 0
+    startY = 0
     tiles = [[0]*map_w for y in xrange(0,map_h)]
-    spawns = [] # TODO: sort spawns by type (for render batching)
+    spawns = [0] # TODO: sort spawns by type (for render batching)
+    numSpawn = 0
+    triggers = []  # client-side exit triggers.
+    entrances = [] # server-side entry locations.
     for y in xrange(0,map_h):
         for x in xrange(0,map_w):
             r,g,b,a = img.get_at((L+x,B-y))
@@ -57,27 +83,66 @@ def convert(rooms, filename, roomId):
                 name, scan, marker = tup
                 xpos = x * 32 + 16 # horizontal center of tile (from left, +X)
                 ypos = y * 32 + 16 # vertical center of tile (from bottom, +Y)
-                if scan == 'DR':
+                if scan == 'X':
+                    # TODO: accumulate mins,maxs to build up trigger zones.
+                    reqd = marker*4+4
+                    while len(triggers) < reqd: triggers.append(0)
+                    ofs = reqd-4
+                    xL,xR,xB,xT = xpos-14,xpos+13,ypos-14,ypos+13
+                    print "code-tile [%d] at %d, %d -> %d, %d, %d, %d" % (marker+1, xpos, ypos, xL, xB, xR, xT)
+                    if triggers[ofs]==0 and triggers[ofs+2]==0:
+                        # first code-tile encountered for this exit.
+                        exitOfs = marker*2
+                        if exitOfs+1 >= len(exits):
+                            raise ValueError('no supplied exit for code-tile [%d]' % (marker+1))
+                        triggers[ofs] = xL
+                        triggers[ofs+1] = xB
+                        triggers[ofs+2] = xR
+                        triggers[ofs+3] = xT
+                    else:
+                        # accumulate tile bounds to build up trigger zones.
+                        if xL < triggers[ofs]: triggers[ofs] = xL
+                        if xB < triggers[ofs+1]: triggers[ofs+1] = xB
+                        if xR > triggers[ofs+2]: triggers[ofs+2] = xR
+                        if xT > triggers[ofs+3]: triggers[ofs+3] = xT
+                elif scan == 'E':
+                    reqd = marker*2+2
+                    while len(entrances) < reqd: entrances.append(0)
+                    entrances[marker*2] = xpos
+                    entrances[marker*2+1] = ypos
+                elif scan == 'P':
+                    startX = xpos
+                    startY = ypos
+                elif scan == 'DR':
                     # rope must render from the top of the top tile to the bottom of the bottom tile.
                     down = findTile(img, L+x, B-y, 0, 1, marker, name)
-                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos+16, down+32))
+                    spawns.extend([b, xpos, ypos+16, down+32])
+                    numSpawn += 1
                 elif scan == 'D':
                     # spider must move from the middle of the top tile to the middle of the bottom tile.
                     # but the strand must extend to the top of the top tile (use a bg tile?)
                     down = findTile(img, L+x, B-y, 0, 1, marker, name)
-                    spawns.append('    %d,%d,%d,%d' % (b, xpos, ypos, down))
+                    spawns.extend([b, xpos, ypos, down])
+                    numSpawn += 1
                 elif scan == 'LR':
                     left = findTile(img, L+x, B-y, -1, 0, marker, name)
                     right = findTile(img, L+x, B-y, 1, 0, marker, name)
-                    spawns.append('    %d,%d,%d,%d,%d' % (b, xpos, ypos, xpos-left, xpos+right))
+                    spawns.extend([b, xpos, ypos, xpos-left, xpos+right])
+                    numSpawn += 1
                 else:
-                    spawns.append('    %d,%d,%d' % (b, xpos, ypos))
+                    spawns.extend([b, xpos, ypos])
+                    numSpawn += 1
             tiles[y][x] = r
 
     lines = ["    " + (",".join(str(x) for x in row)) for row in tiles]
-    if len(spawns):
-        spawn = ",\n    %d,\n%s" % (len(spawns), ",\n".join(spawns))
-    rooms.append('  "%d": [ %d, %d,\n%s%s\n  ]' % (roomId, map_w, map_h, ",\n".join(lines), spawn))
+    spawns[0] = numSpawn # prefix with number of spawns.
+    spawn = ",".join(str(x) for x in spawns)
+    triggers.insert(0, len(triggers)/4) # prefix with number of triggers.
+    trigger = ",".join(str(x) for x in triggers)
+    exits = ",".join(str(x) for x in exits)
+    entry = ",".join(str(x) for x in entrances)
+    rooms.append('  "%d": { "exits":[%s], "entry":[%s], "startX":%d, "startY":%d, "map":[%d,%d,\n%s,\n    %s,\n    %s\n  ]}' %
+                    (roomId, exits, entry, startX, startY, map_w, map_h, ",\n".join(lines), spawn, trigger))
 
 
 def write(rooms, outfile):
@@ -86,10 +151,12 @@ def write(rooms, outfile):
     f.close()
 
 
+
+
 if __name__ == '__main__':
     rooms = []
-    convert(rooms, "splash.tga", 0)
-    convert(rooms, "halls.bmp", 1)
-    convert(rooms, "basement.bmp", 2)
-    convert(rooms, "rooftops.bmp", 3)
+    convert(rooms, "splash.tga", 0, [1,1])
+    convert(rooms, "halls.bmp", 1, [1,6, 2,3, 3,1, 2,1, 2,2, 1,1])
+    convert(rooms, "basement.bmp", 2, [1,4, 1,5, 1,2, 1,6])
+    convert(rooms, "rooftops.bmp", 3, [1,3])
     write(rooms, "../gen/rooms.json")

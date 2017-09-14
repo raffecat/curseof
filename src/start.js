@@ -18,6 +18,7 @@ function initGame() {
   // rendering.
 
   var ready = false;
+  var freeze = false;
   var movers = [];
   var lines = [];
   var sprites = [];
@@ -36,8 +37,7 @@ function initGame() {
         loadLatch = true;
         levelNum += 1;
         if (levelNum > 3) levelNum = 0;
-        var socket = $.w; // injected global.
-        socket.emit('r',levelNum);
+        $.w.emit('r',levelNum);
       }
     } else {
       loadLatch = false;
@@ -50,7 +50,7 @@ function initGame() {
     }
 
     // move the player.
-    if (player) {
+    if (player && !freeze) {
       walkMove(player, dt, map, movers);
     }
 
@@ -326,23 +326,6 @@ function initGame() {
     return ofs+1;
   }
 
-  function spawnPlayer(x, y, data, ofs) {
-    var spr = addSprite(belleTS, x, y, esmeWalkIdle);
-    spr.accX = 0;
-    spr.accY = 0;
-    spr.velX = 0;
-    spr.velY = 0;
-    spr.onground = true;
-    spr.onrope = false;
-    spr.walkAnim = esmeWalk;
-    spr.walkIdle = esmeWalkIdle;
-    spr.climbAnim = esmeClimb;
-    spr.climbIdle = esmeClimbIdle;
-    spr.jumpAnim = esmeJump;
-    player = spr; // update.
-    return ofs;
-  }
-
   var codeMap = {
     "1": spawnTorch,
     "2": spawnRope,
@@ -350,14 +333,15 @@ function initGame() {
     "8": spawnCrawler,
     "9": spawnBat,
     "10": spawnSpider,
-    "48": spawnPlayer,
   };
 
   function loadRoom(data) {
     // log("Room:", data.width, data.height, data.map, data.spawn);
+    var startX = data[0], startY = data[1];
+    map = data[2]; // current map.
 
     // [width, height, {tile}, num_spawn, {type,x,y}]
-    var map_w = data[0], map_h = data[1], ofs = 2;
+    var map_w = map[0], map_h = map[1], ofs = 2;
     var drawSize = 32;
 
     // reset room state.
@@ -365,23 +349,34 @@ function initGame() {
     lines = [];
     sprites = [];
     player = null;
-    map = data;
 
-    redMark = addSprite(redTS, 0, 0, spiderIdle);
-    blueMark = addSprite(blueTS, 0, 0, spiderIdle);
+    // redMark = addSprite(redTS, 0, 0, spiderIdle);
+    // blueMark = addSprite(blueTS, 0, 0, spiderIdle);
 
     // generate geometry for all non-empty room tiles.
-    ofs = MapGeom(roomGeom, tileSet, data, ofs, map_w, map_h);
+    ofs = MapGeom(roomGeom, tileSet, map, ofs, map_w, map_h);
 
     // spawn sprites.
-    var num_spawn = data[ofs++];
+    var num_spawn = map[ofs++];
     for (var i=0; i<num_spawn; i++) {
       // NB. sprites are relative to the top-left corner of the map (y is always negative)
-      var tt = data[ofs], x = data[ofs+1], y = data[ofs+2]; ofs += 3;
+      var tt = map[ofs], x = map[ofs+1], y = map[ofs+2]; ofs += 3;
       var spawn = codeMap[tt]; // type of sprite.
       if (spawn) {
-        ofs = spawn(x, y, data, ofs);
+        ofs = spawn(x, y, map, ofs);
       } else { log("Espawn:"+tt); break; }
+    }
+
+    // spawn exit triggers.
+    var num_exits = map[ofs++];
+    for (var i=0; i<num_exits; i++) {
+      spawnExit(i, map, ofs);
+      ofs += 4;
+    }
+
+    // spawn the player.
+    if (startX) {
+      spawnPlayer(startX, startY);
     }
 
     scene_L = -64;
@@ -398,7 +393,39 @@ function initGame() {
     }
 
     if (!ready) hideStatus(); // finished loading.
-    ready = true;
+
+    ready = true;   // start rendering.
+    freeze = false; // start playing.
+  }
+
+  function spawnExit(index, data, ofs) {
+    var L = data[ofs], B = data[ofs+1], R = data[ofs+2], T = data[ofs+3];
+    var spr = {};
+    movers.push(spr); // update.
+    spr.update = function(s, dt) {
+      if (player && !freeze) {
+        if (player.x >= L && player.x <= R && player.y >= B && player.y <= T) {
+          freeze = true;
+          $.w.emit('x',index);
+        }
+      }
+    };
+  }
+
+  function spawnPlayer(x, y) {
+    var spr = addSprite(belleTS, x, y, esmeWalkIdle);
+    spr.accX = 0;
+    spr.accY = 0;
+    spr.velX = 0;
+    spr.velY = 0;
+    spr.onground = true;
+    spr.onrope = false;
+    spr.walkAnim = esmeWalk;
+    spr.walkIdle = esmeWalkIdle;
+    spr.climbAnim = esmeClimb;
+    spr.climbIdle = esmeClimbIdle;
+    spr.jumpAnim = esmeJump;
+    player = spr; // update.
   }
 
   function hideStatus() {
