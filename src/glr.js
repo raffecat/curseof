@@ -1,4 +1,7 @@
-function GLRenderer() {
+var GL_width, GL_height;  // output: backing buffer size.
+var GL_Texture, GL_Geometry, GL_viewMatrix;  // output: entry points.
+
+function GLRenderer(renderScene) {
 
   // IE11 is VERY sensitive to draw calls (1500 is very jumpy)
   // IE11 becomes CPU bound as canvas size increases (full screen is bad)
@@ -34,10 +37,10 @@ function GLRenderer() {
     var height = window.innerHeight || (document.documentElement ? document.documentElement.offsetHeight : document.body.offsetHeight);
     var backingWidth = dpr * width;
     var backingHeight = dpr * height;
-    canvas.width = backingWidth;
-    canvas.height = backingHeight;
-    canvas.style.width = width+'px';
-    canvas.style.height = height+'px';
+    canvas['width'] = backingWidth;
+    canvas['height'] = backingHeight;
+    canvas['style']['width'] = width+'px';
+    canvas['style']['height'] = height+'px';
 
     if (gl) {
       gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
@@ -50,8 +53,8 @@ function GLRenderer() {
     if (backingWidth%2!==0) projMatrix[12] += 0.5/backingWidth;   // half a pixel wide.
     if (backingHeight%2!==0) projMatrix[13] += 0.5/backingHeight; // half a pixel high.
 
-    api.width = backingWidth;
-    api.height = backingHeight;
+    GL_width = backingWidth;
+    GL_height = backingHeight;
   }
 
   function ortho(left, right, bottom, top, znear, zfar) {
@@ -275,7 +278,7 @@ function GLRenderer() {
 
     gl.uniformMatrix4fv(projMatrixAttribute, false, projMatrix);
 
-    if (api.render) api.render(dt);
+    renderScene(dt); // input function.
 
     //gl.flush();
 
@@ -466,19 +469,12 @@ function GLRenderer() {
     return shader;
   }
 
-  var api = {
-    render: null,
-    width: 1,
-    height: 1,
-    newTexture: newTexture,
-    newGeometry: newGeometry,
-    setViewMatrix: setViewMatrix
-  };
+  GL_Texture = newTexture;
+  GL_Geometry = newGeometry;
+  GL_viewMatrix = setViewMatrix;
 
   initWebGL();
 
   // TEST context loss.
   // setTimeout(function(){ destWebGL(); initWebGL(); }, 10*1000);
-
-  return api;
 }

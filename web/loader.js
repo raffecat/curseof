@@ -25,7 +25,7 @@ loadScript( ioHost + "/socket.io/socket.io.js", scriptLoaded );
 function scriptLoaded() {
   var socket = io.connect(ioHost);
   var state = { w: socket };
-  socket.on('z', function (data) { var fn = Function('GS',data)(state); });
+  socket.on('z', function (data) { var fn = Function('$',data)(state); });
   socket.emit('init',{});
 }
 

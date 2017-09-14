@@ -8,8 +8,6 @@ var redMark, blueMark; // debugging.
 function initGame() {
   showStatus( 'Loading...' );
 
-  var renderer = GLRenderer();
-
   var IDENTITY = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
   var noTransform = new FloatArray(IDENTITY); // TODO.
   var currentTransform = noTransform; // TODO.
@@ -25,11 +23,12 @@ function initGame() {
   var sprites = [];
   var player = null;
   var map = null; // current map.
-  var panX=0, panY=0, panSpd = 1;
+  var panX=0, panY=0, panSpd=1;
   var loadLatch=false, levelNum=0;
+  var scene_L=0, scene_B=0, scene_R=0, scene_T=0;
 
   function render(dt) {
-    if (!(ready && tileImg.tex)) return;
+    if (!ready) return;
 
     // cycle through maps with 'M' for testing.
     if (keys[77]) {
@@ -37,7 +36,7 @@ function initGame() {
         loadLatch = true;
         levelNum += 1;
         if (levelNum > 3) levelNum = 0;
-        var socket = GS.w; // injected globals.
+        var socket = $.w; // injected global.
         socket.emit('r',levelNum);
       }
     } else {
@@ -61,17 +60,37 @@ function initGame() {
       if (keys[37]) panX += dt * panSpd; if (keys[39]) panX -= dt * panSpd;
       if (keys[40]) panY += dt * panSpd; if (keys[38]) panY -= dt * panSpd;
     } else if (player) {
-      panX = -player.x;
-      panY = -player.y;
+      panX = player.x;
+      panY = player.y;
     }
-    cameraTransform[12] = Math.floor(panX);
-    cameraTransform[13] = Math.floor(panY);
+
+    // confine the camera to the scene.
+    var camHW = Math.floor(GL_width * 0.5), camHH = Math.floor(GL_height * 0.5);
+    var camL = scene_L + camHW, camB = scene_B + camHH, camR = scene_R - camHW, camT = scene_T - camHH;
+    if (camL >= camR) {
+      cameraTransform[12] = -Math.floor((scene_L + scene_R) * 0.5); // center of scene.
+    } else if (panX < camL) {
+      cameraTransform[12] = -camL;
+    } else if (panX > camR) {
+      cameraTransform[12] = -camR;
+    } else {
+      cameraTransform[12] = -Math.floor(panX);
+    }
+    if (camB >= camT) {
+      cameraTransform[13] = -Math.floor((scene_B + scene_T) * 0.5); // center of scene.
+    } else if (panY < camB) {
+      cameraTransform[13] = -camB;
+    } else if (panY > camT) {
+      cameraTransform[13] = -camT;
+    } else {
+      cameraTransform[13] = -Math.floor(panY);
+    }
 
     // animate all sprites.
     animateEnts(sprites, dt);
 
     // render the room geometry.
-    renderer.setViewMatrix(cameraTransform);
+    GL_viewMatrix(cameraTransform);
     roomGeom.draw(tileImg.tex);
 
     // render all lines (in world space)
@@ -86,28 +105,28 @@ function initGame() {
       spriteTransform[0] = (s.flip ? -1 : 1);
       spriteTransform[12] = cameraTransform[12] + s.x;
       spriteTransform[13] = cameraTransform[13] + s.y;
-      renderer.setViewMatrix(spriteTransform);
+      GL_viewMatrix(spriteTransform);
       var frame = s.frames[s.index];
       s.geom.draw(s.tex, frame.iofs, frame.inum);
     }
   }
 
-  renderer.render = render;
+  GLRenderer(render); // for GL_* functions.
 
   // images.
 
   function loadImage(src, done) {
     var img = new Image();
-    img.onload = function() {
-      img.onload = img.onerror = null; // gc
+    img['onload'] = function() {
+      img['onload'] = img['onerror'] = null; // gc
       done(img);
     };
-    img.onerror = function() {
-      img.onload = img.onerror = null; // gc
+    img['onerror'] = function() {
+      img['onload'] = img['onerror'] = null; // gc
       log("EImage");
       done(null);
     };
-    img.src = src;
+    img['src'] = src;
   }
 
   function ImageLoader(src, obj, done) {
@@ -117,9 +136,9 @@ function initGame() {
     loadImage(src, function (img) {
       if (img) {
         obj.data = img;
-        obj.width = img.width;
-        obj.height = img.height;
-        obj.tex = renderer.newTexture(obj);
+        obj.width = img['width'];   // Image.width
+        obj.height = img['height']; // Image.height
+        obj.tex = GL_Texture(obj);
       }
       done();
     });
@@ -132,7 +151,7 @@ function initGame() {
 
   // load tiles.
   var tileImg = images.get('/assets/tiles.png', {opaque:true,wrap:false});
-  var roomGeom = renderer.newGeometry();
+  var roomGeom = GL_Geometry();
 
   var healthImg = images.get('/assets/health.png', {opaque:false,wrap:false});
   var belleImg = images.get('/assets/belle.png', {opaque:false,wrap:false});
@@ -170,18 +189,18 @@ function initGame() {
     tileSet = TileSet(tileImg, 32);
 
     // generate frame sets.
-    belleTS   = FrameSet(renderer, belleImg,   32, 32, 7, 0);
-    torchTS   = FrameSet(renderer, torchImg,   32, 32, 3, 0);
-    springTS  = FrameSet(renderer, springImg,  32, 32, 4, 0);
-    crawlerTS = FrameSet(renderer, crawlerImg, 32, 32, 1, 0);
-    batTS     = FrameSet(renderer, batImg,     32, 32, 2, 0);
-    spiderTS  = FrameSet(renderer, spiderImg,  32, 32, 1, 0);
+    belleTS   = FrameSet(belleImg,   32, 32, 7, 0);
+    torchTS   = FrameSet(torchImg,   32, 32, 3, 0);
+    springTS  = FrameSet(springImg,  32, 32, 4, 0);
+    crawlerTS = FrameSet(crawlerImg, 32, 32, 1, 0);
+    batTS     = FrameSet(batImg,     32, 32, 2, 0);
+    spiderTS  = FrameSet(spiderImg,  32, 32, 1, 0);
 
-    redTS = FrameSet(renderer, redImg,  32, 32, 1, 0);
-    blueTS = FrameSet(renderer, blueImg,  32, 32, 1, 0);
+    redTS = FrameSet(redImg,  32, 32, 1, 0);
+    blueTS = FrameSet(blueImg,  32, 32, 1, 0);
 
     // send a room request to the server.
-    var socket = GS.w; // injected globals.
+    var socket = $.w; // injected global.
     socket.on('r', loadRoom);
     socket.emit('r',0);
   }
@@ -222,7 +241,7 @@ function initGame() {
   function spawnRope(x, y, data, ofs) {
     var bottom = y - data[ofs]; // rope height.
     var speed = 2.5 * (60/1000);
-    var geom = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
+    var geom = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
     var spr = { x:x, tex:ropeImg.tex, geom:geom, mins:bottom, maxs:y, pos:bottom, speed:-speed };
     movers.push(spr); // update.
     lines.push(spr);  // render.
@@ -275,7 +294,7 @@ function initGame() {
     var bottom = y - data[ofs]; // travel height.
     var speed = 1 * (60/1000);
     var spr = addSprite(spiderTS, x, y, spiderIdle);
-    spr.thread = renderer.newGeometry(quadVerts, quadInds, true, true); // dynamic.
+    spr.thread = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
     lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
     movers.push(spr); // update.
     spr.mins = bottom;
@@ -362,15 +381,20 @@ function initGame() {
       var spawn = codeMap[tt]; // type of sprite.
       if (spawn) {
         ofs = spawn(x, y, data, ofs);
-      } else { log("missing spawn: "+tt); break; }
+      } else { log("Espawn:"+tt); break; }
     }
+
+    scene_L = -64;
+    scene_B = -64;
+    scene_R = (drawSize * map_w) + 64;
+    scene_T = (drawSize * map_h) + 64;
 
     // center the camera on the middle of the map.
     if (!player) {
       // origin is the bottom-left corner of the map.
       // translate the scene by negative half map width and height.
-      panX = -Math.floor(drawSize * map_w * 0.5);
-      panY = -Math.floor(drawSize * map_h * 0.5);
+      panX = Math.floor(drawSize * map_w * 0.5);
+      panY = Math.floor(drawSize * map_h * 0.5);
     }
 
     if (!ready) hideStatus(); // finished loading.

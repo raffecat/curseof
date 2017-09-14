@@ -50,7 +50,7 @@ function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
   return ofs;
 }
 
-function FrameSet(renderer, image, tileW, tileH, num_frames, yOfs) {
+function FrameSet(image, tileW, tileH, num_frames, yOfs) {
   // generate geometry for each frame in a strip of sprite frames.
   var img_w = image.width, img_h = image.height;
   var ts_u = tileW/img_w;
@@ -80,6 +80,6 @@ function FrameSet(renderer, image, tileW, tileH, num_frames, yOfs) {
       iofs: (base*2), inum: (iofs-base)
     });
   }
-  var geom = renderer.newGeometry(verts, inds); // num_frames * 16, num_frames * 6
+  var geom = GL_Geometry(verts, inds); // num_frames * 16, num_frames * 6
   return { frames:frames, tex:image.tex, geom:geom };
 }

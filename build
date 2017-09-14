@@ -5,8 +5,22 @@ var fs = require('fs');
 var assert = require('assert');
 var uglifyjs = require('uglify-js');
 var cheerio = require('cheerio');
+var hasOwn = Object.prototype.hasOwnProperty;
 
 var devMode = ~process.argv.indexOf('--dev');
+
+// generally a really bad idea, but a fun experiment.
+var obscure = {
+  // textures:
+  'wrap':'u', 'opaque':'o', 'width':'w', 'height':'h',
+  // entities: (AVOID 'x' and 'y')
+  'onground':'g', 'onrope':'r', 'frames':'f', 'tex':'t', 'anim':'a', 'animOfs':'b', 'animTr':'c',
+  'geom':'e', 'mins':'i', 'maxs':'j', 'pos':'k', 'speed':'s', 'update':'u', 'flip':'l',
+  'walkAnim':'w', 'walkIdle':'m', 'climbAnim':'n', 'climbIdle':'o', 'jumpAnim':'p',
+  'accX':'q', 'accY':'v', 'velX':'h', 'velY':'d', 'jumpHeld':'z', 'is_rope':'a0',
+  // hit-test:
+  'hitL':'a','hitR':'b','hitB':'c','hitT':'d','climb':'e','pain':'f',
+};
 
 // minify HTML and inline CSS.
 var $ = cheerio.load(read('web/index.html'), devMode?{}:{ignoreWhitespace:true});
@@ -46,9 +60,13 @@ write('gen/game.js', minify(wrap(
   ]))
 )));
 
-
 function minify(text) {
   if (devMode) return text;
+  if (1) {
+    // obscure object fields (closure compiler kind of thing)
+    text = text.replace(/\.[A-Za-z_]+\b/g, function (word) { word=word.substring(1); return '.' + (hasOwn.call(obscure,word) ? obscure[word] : word); });
+    text = text.replace(/\b[A-Za-z_]+:/g, function (word) { word=word.substring(0,word.length-1); return (hasOwn.call(obscure,word) ? obscure[word] : word) + ':'; });
+  }
   return uglifyjs.minify(text, {fromString:true}).code; // TODO: outSourceMap
 }
 
