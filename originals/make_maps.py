@@ -151,12 +151,10 @@ def write(rooms, outfile):
     f.close()
 
 
-
-
 if __name__ == '__main__':
     rooms = []
-    convert(rooms, "splash.tga", 0, [1,1])
-    convert(rooms, "halls.bmp", 1, [1,6, 2,3, 3,1, 2,1, 2,2, 1,1])
-    convert(rooms, "basement.bmp", 2, [1,4, 1,5, 1,2, 1,6])
-    convert(rooms, "rooftops.bmp", 3, [1,3])
+    convert(rooms, "rooftops.png", 3, [0,1])
+    convert(rooms, "halls.png", 0, [3,1, 1,1, 0,3, 0,4])
+    convert(rooms, "passages.png", 1, [0,2, 2,1, 1,3, 1,4])
+    convert(rooms, "basement.png", 2, [1,2, 2,2, 2,3, 2,4])
     write(rooms, "../gen/rooms.json")

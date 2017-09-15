@@ -379,10 +379,10 @@ function initGame() {
       spawnPlayer(startX, startY);
     }
 
-    scene_L = -64;
-    scene_B = -64;
-    scene_R = (drawSize * map_w) + 64;
-    scene_T = (drawSize * map_h) + 64;
+    scene_L = 0;
+    scene_B = 0;
+    scene_R = (drawSize * map_w);
+    scene_T = (drawSize * map_h);
 
     // center the camera on the middle of the map.
     if (!player) {
