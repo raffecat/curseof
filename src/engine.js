@@ -37,10 +37,10 @@ function animateEnts(ents, delta) {
 }
 
 var solidTiles = { 2:1, 3:1, 4:1, 5:1, 12:1, 13:1, 18:1, 19:1, 34:1, 35:1, 68:1, 69:1, 70:1 };
-var climbTiles = { 8:1, 10:1 };
+var ladderTiles = { 8:1, 10:1, 25:1 };
 var painTiles = { 1:1, 9:1, 11:1, 26:1 };
 
-function hitTestMap(map, L, B, R, T, res) {
+function hitTestMap(map, L, B, R, T, falling, res) {
   // hit-test a rect against the tile map, returning min/max height.
   var w = map[0], h = map[1], base = 2; // NB. first row at offset=2.
   var x0 = Math.max(Math.floor(L / 32), 0);    // min 0
@@ -49,16 +49,17 @@ function hitTestMap(map, L, B, R, T, res) {
   var y1 = Math.min(Math.floor(T / 32), h-1);  // max h-1
   //log("x0="+x0+"  x1="+x1+"  y0="+y0+"  y1="+y1);
   var hitL = L, hitB = B, hitR = R, hitT = T;
-  var climb = false, pain = false;
+  var ladder = false, pain = false;
   for (var y = y0; y <= y1; y++) {
     var row = base + (y * w);
     for (var x = x0; x <= x1; x++) {
       var t = map[row+x];
       if (solidTiles[t]) {
         // determine the edges of the solid tile.
-        // TODO: maybe R,T should be +31 not +32 ?! (consider pixels of tile)
+        // TODO: find out if top/right tracing is going 1 pixel too far!
+        // TODO: maybe R,T should be +31 not +32 (consider pixels within tile bounds)
         var tileL = x * 32, tileB = y * 32, tileR = tileL + 32, tileT = tileB + 32;
-        // record the minimum and maximum solid edges found.
+        // record the minimum and maximum solid-edges found.
         // exclude opposing edges that are outside the query rect, otherwise
         // we get false positives from the back-edges of adjacent solid tiles.
         if (tileR > hitL && tileR < R) hitL = tileR;
@@ -67,22 +68,36 @@ function hitTestMap(map, L, B, R, T, res) {
         if (tileB < hitT && tileB > B) hitT = tileB;
       }
       // record the tile tags found.
-      if (climbTiles[t]) climb = true;
+      if (ladderTiles[t]) {
+        ladder = true;
+        if (falling) {
+          // treat ladder tiles as solid tiles when falling.
+          var tileT = (y * 32) + 32;
+          if (tileT > hitB && tileT < T) hitB = tileT;
+        }
+      }
       if (painTiles[t]) pain = true;
     }
   }
   res.hitL = hitL; res.hitB = hitB;
   res.hitR = hitR; res.hitT = hitT;
-  res.climb = climb; res.pain = pain;
+  res.ladder = ladder; res.pain = pain;
 }
 
 var jumpVelocity = 5 * (60/1000);
+// var jumpExtra = 1 * (60/1000);
 var gravity = 0.01 * (60/1000);
 var walkSpeed = 3 * (60/1000);
 var climbSpeed = 3 * (60/1000);
 var maxVelX = 8 * (60/1000);
 var maxVelY = 10 * (60/1000);
 var res = {};
+
+var hitW = 16 - 5;    // subtract more than walkSpeed, for holes/ladders.
+var hitW2 = hitW*2-1; // added to left edge for right edge.
+var hitH = 16;        // must go all the way to bottom of feet.
+var hitH2 = 32 - 2;   // leave some head clearance for grabbing ledges.
+var ropeW = 8;        // center must be within 8px of the rope.
 
 function walkMove(actor, dt, map, movers) {
 
@@ -92,17 +107,20 @@ function walkMove(actor, dt, map, movers) {
   var down = keys[83]; // S.
   var up = keys[87]; // W.
 
-  if (actor.onrope) {
+  if (actor.climbing) {
     if (actor.velY > 0) actor.velY -= dt * gravity; // apply gravity if jumping.
     if (actor.velY < 0) actor.velY = 0; // never fall.
   } else {
     if (actor.onground) actor.velY = 0; // reset fall velocity.
-    actor.velY -= dt * gravity; // always apply gravity.
-    if (actor.velY < -maxVelY) actor.velY = -maxVelY;
+    else {
+      actor.velY -= dt * gravity; // always apply gravity.
+      if (actor.velY < -maxVelY) actor.velY = -maxVelY;
+    }
   }
 
   var moveX = 0;
   var moveY = dt * actor.velY;
+  var climbing = false;
   var turnTo = null;
 
   if (left) {
@@ -120,14 +138,16 @@ function walkMove(actor, dt, map, movers) {
     }
   }
 
-  if (actor.onrope) {
+  if (actor.climbing) {
     if (up) {
       moveY = dt * climbSpeed;
       turnTo = actor.climbAnim; // overrides walk,idle,jump.
+      climbing = true;
     } else if (down) {
       moveY = dt * -climbSpeed;
       actor.velY = dt * -2 * gravity; // for dropping off the bottom.
       turnTo = actor.climbAnim; // overrides walk,idle,jump.
+      climbing = true;
     } else {
       // stop climbing.
       if (actor.anim === actor.climbAnim) {
@@ -142,25 +162,29 @@ function walkMove(actor, dt, map, movers) {
   }
 
   if (jump) {
-    if (!actor.jumpHeld) {
-      actor.jumpHeld = true;
-      if (actor.onground || actor.onrope) {
-        // actor.onground = false; // covered below.
-        // actor.onrope = false;   // covered below.
-        actor.velY = jumpVelocity;
-        moveY = dt * jumpVelocity;
-        turnTo = actor.jumpAnim; // overrides everything.
-      }
+    // every frame while jump is held, add a small amount of additional velocity.
+    if (actor.jumpHeld == 0 && (actor.onground || actor.climbing)) {
+      // actor.onground = false; // covered below.
+      // actor.climbing = false;   // covered below.
+      actor.velY = jumpVelocity;
+      moveY = dt * jumpVelocity;
+      turnTo = actor.jumpAnim; // overrides everything.
+      actor.jumpHeld = 1;
     }
+    /* } else if (actor.jumpHeld > 0 && actor.jumpHeld < 10) {
+      actor.jumpHeld += 1;
+      actor.velY += jumpExtra / actor.jumpHeld;
+    } */
   } else {
-    actor.jumpHeld = false;
+    actor.jumpHeld = 0;
   }
 
   // apply the animation with highest precedence.
   if (turnTo) {
     toAnim(actor, turnTo);
-  } else if (actor.onground && actor.anim === actor.jumpAnim) {
-    toAnim(actor, actor.walkIdle);
+  } else if (actor.anim === actor.jumpAnim) {
+    if (actor.onground) toAnim(actor, actor.walkIdle);
+    else if (actor.climbing) toAnim(actor, actor.climbIdle);
   }
 
   // accumulate intent-to-move over frames, but only move by whole pixels.
@@ -178,21 +202,32 @@ function walkMove(actor, dt, map, movers) {
   // hit-test the actor bounds, expanded by vertical movement.
   // must collide separately - diagonal movement sticks to walls and floors.
   // vertical movement first, so players can catch ledges as they fall.
+  var pain = false;
+  var ladder = false;
   actor.onground = false; // unless set below.
-  var L = actor.x-14, R = L+28, B = actor.y-16, T = B+30; // (-4,-2) from size.
+  var L = actor.x-hitW, R = L+hitW2, B = actor.y-hitH, T = B+hitH2;
   if (dy < 0) {
-    // moving down.
-    hitTestMap(map, L, B+dy, R, T, res);
-    actor.onrope = res.climb;
-    actor.y += res.hitB - B; // vector from B to HitPos.
-    if (res.hitB === B) {
-      // did hit the ground.
+    // moving down (due to gravity or climbing down)
+    // NB. need to test the full B..T height to grip ladders above feet!
+    // -> if you're falling (not yet on a ladder)
+    // -> this will detect the ladder beneath us,
+    // -> and then, we need to decide not to fall!
+    hitTestMap(map, L, B+dy, R, T-4, !climbing, res);
+    pain = pain || res.pain;
+    ladder = ladder || res.ladder;
+    // want to avoid falling down ladders, but for that to work, we need to know
+    // the hitB for climbing tiles as well as the hitB for solid tiles.
+    actor.y += res.hitB - B; // vector from B down to support (ground or ladder)
+    if (res.hitB !== B+dy) {
+      // trace hit something (must be ground or ladder)
       actor.onground = true;
     }
   } else if (dy > 0) {
     // moving up (trace 1 extra pixel so we can stay 1 pixel away from the surface)
-    hitTestMap(map, L, B, R, T+dy+1, res);
-    actor.onrope = res.climb;
+    // NB. need to test from B..T to detect and climb ladders at ground level.
+    hitTestMap(map, L, B, R, T+dy+1, false, res);
+    pain = pain || res.pain;
+    ladder = ladder || res.ladder;
     actor.y += (res.hitT-1) - T; // vector from T to HitPos.
     if ((res.hitT-1) === T) {
       // have hit the ceiling.
@@ -200,40 +235,50 @@ function walkMove(actor, dt, map, movers) {
     }
   } else {
     // not moving vertically.
-    // must check for (loss of) ground below feet.
-    hitTestMap(map, L, B-1, R, T, res);
-    actor.onrope = res.climb;
+    // must check for (loss of) ground or ladder below feet (due to horizontal movement)
+    // NB. need to test the full B..T height to grip ladders above feet!
+    hitTestMap(map, L, B-1, R, T-4, true, res);
+    pain = pain || res.pain;
+    ladder = ladder || res.ladder;
     if (res.hitB === B) {
-      // did hit the ground.
+      // trace hit something (must be ground or ladder)
       actor.onground = true;
     }
   }
 
   // hit-test the actor bounds, expanded by horizontal movement.
-  B = actor.y-16; T = B+30; // (-4,-2) from size.
+  B = actor.y-hitH; T = B+hitH2;
   if (dx < 0) {
     // moving left.
-    hitTestMap(map, L+dx, B, R, T, res);
-    actor.onrope = res.climb;
+    hitTestMap(map, L+dx, B, R, T, false, res);
+    pain = pain || res.pain;
+    ladder = ladder || res.ladder;
     actor.x += res.hitL - L; // vector from L to HitPos.
   } else if (dx > 0) {
     // moving right (trace 1 extra pixel so we can stay 1 pixel away from the surface)
-    hitTestMap(map, L, B, R+dx+1, T, res);
-    actor.onrope = res.climb;
+    hitTestMap(map, L, B, R+dx+1, T, false, res);
+    pain = pain || res.pain;
+    ladder = ladder || res.ladder;
     actor.x += (res.hitR-1) - R; // vector from R to HitPos.
   }
 
-  // test for ropes.
-  L = actor.x-14, R = L+28; // (-4,-2) from size.
+  // test for moving ropes.
+  L = actor.x-ropeW, R = L+ropeW+ropeW;
   for (var i=0; i<movers.length; i++) {
     var rope = movers[i];
     if (rope.is_rope) {
+      // NB. (T-4) can hold on to the bottom 4 pixels of the rope.
       if (rope.x >= L && rope.x <= R && rope.maxs > B && rope.pos < (T-4)) {
-        actor.onrope = true;
+        ladder = true;
       }
     }
   }
 
+  // update actor.
+  actor.climbing = ladder; // actor is on a ladder or rope.
+}
+
+/*
   // if solid within actor rect:
   //   (must move or be crushed)
   //   if max-Y is within step-height at bottom of actor:
@@ -253,16 +298,6 @@ function walkMove(actor, dt, map, movers) {
   //       move down, clear onground (is falling)
   //   else:
   //     set iscrushed (must move horizontally or die)
-  // else if climbable within actor rect:
-  //   set onground and onladder.
-  // else
-  //   if max-Y is below actor:
-  //     if not climbing:
-  //       move down to ground.
-  //     
-}
-
-/*
 
   redMark.y = actor.y + dy; redMark.x = actor.x + 16;
   blueMark.y = actor.y + dy; blueMark.x = actor.x;

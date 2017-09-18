@@ -153,8 +153,9 @@ def write(rooms, outfile):
 
 if __name__ == '__main__':
     rooms = []
-    convert(rooms, "rooftops.png", 3, [0,1])
-    convert(rooms, "halls.png", 0, [3,1, 1,1, 0,3, 0,4])
+    convert(rooms, "rooftops.png", 3, [4,4])
+    convert(rooms, "upper.png", 4, [4,1, 0,1, 0,3, 3,1, 0,5, 0,6, 4,7])
+    convert(rooms, "halls.png", 0, [4,2, 1,1, 4,3, 0,4, 4,5, 4,6])
     convert(rooms, "passages.png", 1, [0,2, 2,1, 1,3, 1,4])
     convert(rooms, "basement.png", 2, [1,2, 2,2, 2,3, 2,4])
     write(rooms, "../gen/rooms.json")

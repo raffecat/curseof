@@ -57,8 +57,8 @@ function initGame() {
     // center the camera on the player.
     if (keys[16]) {
       // camera panning with arrow keys (hold shift to pan)
-      if (keys[37]) panX += dt * panSpd; if (keys[39]) panX -= dt * panSpd;
-      if (keys[40]) panY += dt * panSpd; if (keys[38]) panY -= dt * panSpd;
+      if (keys[37]) panX -= dt * panSpd; if (keys[39]) panX += dt * panSpd;
+      if (keys[40]) panY -= dt * panSpd; if (keys[38]) panY += dt * panSpd;
     } else if (player) {
       panX = player.x;
       panY = player.y;
@@ -414,10 +414,13 @@ function initGame() {
 
   function spawnPlayer(x, y) {
     var spr = addSprite(belleTS, x, y, esmeWalkIdle);
+    spr.health = 100;
+    spr.lastDmg = 0;
     spr.accX = 0;
     spr.accY = 0;
     spr.velX = 0;
     spr.velY = 0;
+    spr.jumpHeld = 0;
     spr.onground = true;
     spr.onrope = false;
     spr.walkAnim = esmeWalk;
