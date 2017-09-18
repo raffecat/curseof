@@ -13,7 +13,7 @@ var io = require('socket.io').listen(server, {
   origins: devMode ? '*:*' : 'curse.raffe.io:*',
   'log level': devMode ? 3 : 2
 });
-var port = devMode ? 443 : 4430;
+var port = devMode ? 8001 : 8001;
 
 var jsFiles = ['game'];
 var rooms = {};

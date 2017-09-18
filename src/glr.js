@@ -1,5 +1,5 @@
-var GL_width, GL_height, GL_halfW, GL_halfH;  // output: backing buffer size.
-var GL_Texture, GL_Geometry, GL_viewMatrix, GL_setClip, GL_endClip;  // output: entry points.
+var GL_width, GL_height, GL_halfW, GL_halfH, GL_white;  // output: backing buffer size.
+var GL_Texture, GL_Geometry, GL_viewMatrix, GL_setClip, GL_endClip, GL_setColor;  // output: entry points.
 
 function GLRenderer(renderScene) {
 
@@ -111,6 +111,7 @@ function GLRenderer(renderScene) {
   var textureCoordAttribute;
   var projMatrixAttribute;
   var modelViewAttribute;
+  var colorAttribute;
   var samplerAttribute;
 
   var texList = [];
@@ -118,6 +119,10 @@ function GLRenderer(renderScene) {
 
   var blendState = false;
   var currentTex = null;
+
+  var white = { r:1.0, g:1.0, b:1.0, a:1.0 };
+  var currentColor = white;
+  GL_white = white;
 
   var lastTS = null;
 
@@ -185,6 +190,7 @@ function GLRenderer(renderScene) {
     textureCoordAttribute = gl.getAttribLocation(shaderProgram, "aTextureCoord");
     projMatrixAttribute = gl.getUniformLocation(shaderProgram, "uPMatrix");
     modelViewAttribute = gl.getUniformLocation(shaderProgram, "uMVMatrix");
+    colorAttribute = gl.getUniformLocation(shaderProgram, "uColor");
     samplerAttribute = gl.getUniformLocation(shaderProgram, "uSampler");
 
     gl.enableVertexAttribArray(vertexPositionAttribute);
@@ -236,6 +242,7 @@ function GLRenderer(renderScene) {
     textureCoordAttribute = null;
     projMatrixAttribute = null;
     modelViewAttribute = null;
+    colorAttribute = null;
     samplerAttribute = null;
 
     for (var i=0; i<texList.length; i++) {
@@ -275,6 +282,9 @@ function GLRenderer(renderScene) {
     //gl.clearColor(0.2, 0.2, 0.3, 1.0);
     //gl.clear(clearBits); // seems to consume CPU in IE11 fallback.
 
+    gl.uniform4f(colorAttribute, 1.0, 1.0, 1.0, 1.0);
+    currentColor = white;
+
     gl.uniformMatrix4fv(projMatrixAttribute, false, projMatrix);
 
     renderScene(dt); // input function.
@@ -301,6 +311,13 @@ function GLRenderer(renderScene) {
 
   function endClip() {
     gl.disable(gl.SCISSOR_TEST);
+  }
+
+  function setColor(col) {
+    if (col !== currentColor) {
+      currentColor = col;
+      gl.uniform4f(colorAttribute, col.r, col.g, col.b, 1.0);
+    }
   }
 
   // ---- textures.
@@ -481,6 +498,7 @@ function GLRenderer(renderScene) {
   GL_viewMatrix = setViewMatrix;
   GL_setClip = setClip;
   GL_endClip = endClip;
+  GL_setColor = setColor;
 
   initWebGL();
 

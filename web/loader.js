@@ -20,7 +20,7 @@ function loadScript( url, callback ) {
   attempt();
 }
 
-var ioHost = 'http://'+window.location.hostname+':443';
+var ioHost = 'http://'+window.location.hostname+':8001';
 loadScript( ioHost + "/socket.io/socket.io.js", scriptLoaded );
 function scriptLoaded() {
   var socket = io.connect(ioHost);

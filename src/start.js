@@ -15,6 +15,7 @@ function initGame() {
   var spriteTransform = new FloatArray(IDENTITY);
 
   var maxHealth = 103;
+  var savedHealth = maxHealth; // new game.
 
   // rendering.
 
@@ -133,6 +134,7 @@ function initGame() {
       spriteTransform[12] = cameraTransform[12] + s.x;
       spriteTransform[13] = cameraTransform[13] + s.y;
       GL_viewMatrix(spriteTransform);
+      GL_setColor(s.color);
       var frame = s.frames[s.index];
       s.geom.draw(s.tex, frame.iofs, frame.inum);
     }
@@ -236,7 +238,7 @@ function initGame() {
   }
 
   function addSprite(ts, x, y, anim, enemy) {
-    var spr = { x:x, y:y, is_rope:false, is_enemy:enemy, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
+    var spr = { x:x, y:y, is_rope:false, is_enemy:enemy, color:GL_white, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
     setAnim(spr, anim);
     sprites.push(spr); // render.
     return spr;
@@ -308,6 +310,7 @@ function initGame() {
     var speed = 2 * (60/1000);
     var spr = addSprite(crawlerTS, x, y, crawlerWalk, true);
     pathLeftRight(spr, left, right, speed);
+    spr.flip = true;
     return ofs+2;
   }
 
@@ -316,6 +319,7 @@ function initGame() {
     var speed = 3 * (60/1000);
     var spr = addSprite(batTS, x, y, batFly, true);
     pathLeftRight(spr, left, right, speed);
+    spr.flip = true;
     return ofs+2;
   }
 
@@ -372,6 +376,9 @@ function initGame() {
     // [width, height, {tile}, num_spawn, {type,x,y}]
     var map_w = map[0], map_h = map[1], ofs = 2;
     var drawSize = 32;
+
+    // save player health before loading.
+    if (player) savedHealth = player.health;
 
     // reset room state.
     movers = [];
@@ -443,7 +450,7 @@ function initGame() {
 
   function spawnPlayer(x, y) {
     var spr = addSprite(belleTS, x, y, esmeWalkIdle, false);
-    spr.health = maxHealth;
+    spr.health = savedHealth;
     spr.lastDmg = 250; // reset the timer.
     spr.accX = 0;
     spr.accY = 0;

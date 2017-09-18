@@ -3,11 +3,16 @@ precision mediump float;
 
 attribute vec2 aVertexPosition;
 attribute vec2 aTextureCoord;
+
 uniform mat4 uPMatrix;
 uniform mat4 uMVMatrix;
+uniform vec4 uColor;
+
 varying vec2 vTextureCoord;
+varying vec4 vColor;
 
 void main(void) {
   gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 0.0, 1.0);
   vTextureCoord = aTextureCoord;
+  vColor = uColor;
 }

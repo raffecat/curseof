@@ -107,6 +107,8 @@ var hitH = 16;        // must go all the way to bottom of feet.
 var hitH2 = 32 - 2;   // leave some head clearance for grabbing ledges.
 var ropeW = 8;        // center must be within 8px of the rope.
 
+var RED = { r:1.0, g:0.5, b:0.5, a:1.0 };
+
 function walkMove(actor, dt, map, movers) {
 
   var jump = keys[32]; // Space.
@@ -293,16 +295,26 @@ function walkMove(actor, dt, map, movers) {
   // update actor climbing state.
   actor.climbing = ladder; // actor is on a ladder or rope.
 
-  // take damage.
+  // take damage and flash the player.
   if (pain) {
     if (actor.lastDmg >= 250) { // 4x per second.
       actor.health -= 1;
       actor.lastDmg -= 250;
+      actor.color = RED;
     } else {
+      if (actor.lastDmg >= 100) { // stop flashing.
+        actor.color = GL_white;
+      }
       actor.lastDmg += dt;
     }
   } else {
-    actor.lastDmg = 250; // reset the timer.
+    if (actor.lastDmg !== 250) {
+      actor.lastDmg += dt;
+      if (actor.lastDmg >= 100) { // stop flashing.
+        actor.lastDmg = 250; // reset the timer.
+        actor.color = GL_white;
+      }
+    }
   }
 
 }
