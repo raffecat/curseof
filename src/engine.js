@@ -36,7 +36,8 @@ function animateEnts(ents, delta) {
   }
 }
 
-var solidTiles = { 2:1, 3:1, 4:1, 5:1, 12:1, 13:1, 18:1, 19:1, 34:1, 35:1, 68:1, 69:1, 70:1 };
+var solidTiles = { 2:1, 3:1, 4:1, 5:1, 12:1, 13:1, 18:1, 19:1, 34:1, 35:1,
+                   69:1, 70:1, 71:1, 77:1, 78:1, 79:1, 85:1, 86:1 };
 var ladderTiles = { 8:1, 10:1, 25:1 };
 var painTiles = { 1:1, 9:1, 11:1, 26:1 };
 
@@ -180,6 +181,7 @@ function walkMove(actor, dt, map, movers) {
       moveY = dt * jumpVelocity;
       turnTo = actor.jumpAnim; // overrides everything.
       actor.jumpHeld = 1;
+      Snd_play(jumpSound);
     }
     /* } else if (actor.jumpHeld > 0 && actor.jumpHeld < 10) {
       actor.jumpHeld += 1;
@@ -301,6 +303,7 @@ function walkMove(actor, dt, map, movers) {
       actor.health -= 1;
       actor.lastDmg -= 250;
       actor.color = RED;
+      Snd_play(painSound);
     } else {
       if (actor.lastDmg >= 100) { // stop flashing.
         actor.color = GL_white;

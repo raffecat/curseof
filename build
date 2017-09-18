@@ -52,6 +52,7 @@ write('gen/game.js', minify(wrap(
     'src/raf-shim.js',
     'src/defs.js',
     'src/cache.js',
+    'src/audio.js',
     'src/controls.js',
     'src/engine.js',
     'src/geom.js',

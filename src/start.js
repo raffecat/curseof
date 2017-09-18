@@ -5,6 +5,10 @@ function removeElem(id,e) { (e=getElem(id)).parentNode.removeChild(e); }
 
 var redMark, blueMark; // debugging.
 
+// sounds.
+var jumpSound = Snd_Sample('/assets/jump.wav');
+var painSound = Snd_Sample('/assets/ouch.wav');
+
 function initGame() {
   showStatus( 'Loading...' );
 
