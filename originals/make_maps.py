@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import pygame
-#import json
+import json
 
 DEFS = {
     1: ('Torch', '', 0),
@@ -46,9 +46,37 @@ def findTile(img, x, y, dx, dy, marker, name):
             print "missing end-marker %d for %s at [%d,%d]" % (marker,name,ox,oy)
             return 0
 
-def convert(rooms, filename, roomId, exits):
+class JSONMap:
+    def __init__(self, data):
+        self.data = data
+        self.width = self.data[u'width']
+        self.height = self.data[u'height']
+        self.tiles = self.data[u'layers'][0][u'data']
+        self.codes = self.data[u'layers'][1][u'data']
+        self.firstTile = self.data[u'tilesets'][0][u'firstgid']
+        self.firstCode = self.data[u'tilesets'][1][u'firstgid']
+        assert(self.data[u'layers'][0][u'width'] == self.width)
+        assert(self.data[u'layers'][0][u'height'] == self.height)
+        assert(self.data[u'layers'][0][u'x'] == 0)
+        assert(self.data[u'layers'][0][u'y'] == 0)
+    def get_size(self):
+        return (self.width, self.height)
+    def get_at(self, coords):
+        x, y = coords
+        ofs = y * self.width + x
+        red = self.tiles[ofs] - self.firstTile
+        if red < 0: red = 0 # for empty cells.
+        blue = self.codes[ofs] - self.firstCode
+        if blue < 0: blue = 0 # for empty cells.
+        return red,0,blue,0
+
+def convert(rooms, filename, roomId, exits, isJSON=False):
     print filename
-    img = pygame.image.load(filename)
+    if isJSON:
+        with open(filename,'r') as f:
+            img = JSONMap(json.load(f))
+    else:
+        img = pygame.image.load(filename)
     w,h = img.get_size()
     L,T,R,B = w,h,0,0
 
@@ -155,7 +183,7 @@ if __name__ == '__main__':
     rooms = []
     convert(rooms, "rooftops.png", 3, [4,4])
     convert(rooms, "upper.png", 4, [4,1, 0,1, 0,3, 3,1, 0,5, 0,6, 4,7])
-    convert(rooms, "halls.png", 0, [4,2, 1,1, 4,3, 0,4, 4,5, 4,6])
+    convert(rooms, "halls.json", 0, [4,2, 1,1, 4,3, 0,4, 4,5, 4,6], True)
     convert(rooms, "passages.png", 1, [0,2, 2,1, 1,3, 1,4])
     convert(rooms, "basement.png", 2, [1,2, 2,2, 2,3, 2,4])
     write(rooms, "../gen/rooms.json")
