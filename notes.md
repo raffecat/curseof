@@ -1,10 +1,6 @@
 
-# closure-compiler
-
-```
 brew cask install java
 brew install closure-compiler
-```
 
 convert passages.bmp +repage -crop 256x20+0+0 +repage pass.png
 
@@ -236,3 +232,8 @@ Bridge over river
 Ocean
 Desert
 Fire caverns
+
+Tiled:
+Tile flipping (high bits)
+Chunks -> irregular chunks (a template group of chunks)
+Wang tiles -> wang chunks (for map generation)

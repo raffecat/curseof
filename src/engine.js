@@ -69,11 +69,19 @@ function hitTestMap(map, L, B, R, T, falling, res) {
       }
       // record the tile tags found.
       if (ladderTiles[t]) {
-        ladder = true;
-        if (falling) {
-          // treat ladder tiles as solid tiles when falling.
-          var tileT = (y * 32) + 32;
-          if (tileT > hitB && tileT < T) hitB = tileT;
+        if (t === 10) {
+          // HACK: rope is 6px + player is 16px when climbing. messy.
+          var pos = (L+R)*0.5; // approx actor position!
+          var rL = pos-11, rR = L+22; // half each side (3+8)
+          var cx = (x * 32) + 16; // center of the rope tile.
+          if (cx >= rL && cx <= rR) ladder = true;
+        } else {
+          ladder = true;
+          if (falling) {
+            // treat ladder tiles as solid tiles when falling.
+            var tileT = (y * 32) + 32;
+            if (tileT > hitB && tileT < T) hitB = tileT;
+          }
         }
       }
       if (painTiles[t]) pain = true;
@@ -263,19 +271,40 @@ function walkMove(actor, dt, map, movers) {
   }
 
   // test for moving ropes.
-  L = actor.x-ropeW, R = L+ropeW+ropeW;
+  // rope is 6px + player is 16px when climbing.
+  rL = actor.x-11, rR = L+22; // half each side (3+8)
   for (var i=0; i<movers.length; i++) {
-    var rope = movers[i];
-    if (rope.is_rope) {
+    var obj = movers[i];
+    if (!ladder && obj.is_rope) {
       // NB. (T-4) can hold on to the bottom 4 pixels of the rope.
-      if (rope.x >= L && rope.x <= R && rope.maxs > B && rope.pos < (T-4)) {
+      if (obj.x >= rL && obj.x <= rR && obj.maxs > B && obj.pos < (T-4)) {
         ladder = true;
+      }
+    }
+    if (!pain && obj.is_enemy) {
+      // obj right is > my left; obj left < my right.
+      // obj top is above feet; obj bottom is below head.
+      if (obj.x+12 > L && obj.x-12 < R && obj.y+12 > B && obj.y-12 < T) {
+        pain = true;
       }
     }
   }
 
-  // update actor.
+  // update actor climbing state.
   actor.climbing = ladder; // actor is on a ladder or rope.
+
+  // take damage.
+  if (pain) {
+    if (actor.lastDmg >= 250) { // 4x per second.
+      actor.health -= 1;
+      actor.lastDmg -= 250;
+    } else {
+      actor.lastDmg += dt;
+    }
+  } else {
+    actor.lastDmg = 250; // reset the timer.
+  }
+
 }
 
 /*

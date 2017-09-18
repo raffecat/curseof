@@ -9,11 +9,12 @@ function initGame() {
   showStatus( 'Loading...' );
 
   var IDENTITY = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
-  var noTransform = new FloatArray(IDENTITY); // TODO.
-  var currentTransform = noTransform; // TODO.
 
+  var noTransform = new FloatArray(IDENTITY);
   var cameraTransform = new FloatArray(IDENTITY);
   var spriteTransform = new FloatArray(IDENTITY);
+
+  var maxHealth = 103;
 
   // rendering.
 
@@ -27,6 +28,21 @@ function initGame() {
   var panX=0, panY=0, panSpd=1;
   var loadLatch=false, levelNum=0;
   var scene_L=0, scene_B=0, scene_R=0, scene_T=0;
+  var healthBar;
+
+  function updateHealthBar() {
+    if (player) {
+      var health = Math.max(0, player.health);
+      var L = -GL_halfW + 8, R = L + (2 * health);
+      var T = GL_halfH-8, B = T-15;
+      var u = (R-L) / (2 * maxHealth);
+      quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = 1;
+      quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = u; quadVerts[7] = 1;
+      quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
+      quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = u; quadVerts[15] = 0;
+      healthBar.update(quadVerts);
+    }
+  }
 
   function render(dt) {
     if (!ready) return;
@@ -52,6 +68,11 @@ function initGame() {
     // move the player.
     if (player && !freeze) {
       walkMove(player, dt, map, movers);
+      updateHealthBar();
+      if (player.health < 1) {
+        // DEAD.
+        freeze = true;
+      }
     }
 
     // center the camera on the player.
@@ -89,6 +110,12 @@ function initGame() {
     // animate all sprites.
     animateEnts(sprites, dt);
 
+    // draw the health bar.
+    GL_viewMatrix(noTransform);
+    healthBar.draw(healthImg.tex);
+
+    GL_setClip(0, 0, GL_width, GL_height - 40);
+
     // render the room geometry.
     GL_viewMatrix(cameraTransform);
     roomGeom.draw(tileImg.tex);
@@ -109,6 +136,8 @@ function initGame() {
       var frame = s.frames[s.index];
       s.geom.draw(s.tex, frame.iofs, frame.inum);
     }
+
+    GL_endClip();
   }
 
   GLRenderer(render); // for GL_* functions.
@@ -187,6 +216,7 @@ function initGame() {
 
   function startGame() {
     tileSet = TileSet(tileImg, 32);
+    healthBar = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
 
     // generate frame sets.
     belleTS   = FrameSet(belleImg,   32, 32, 7, 0);
@@ -205,8 +235,8 @@ function initGame() {
     socket.emit('r',0);
   }
 
-  function addSprite(ts, x, y, anim) {
-    var spr = { x:x, y:y, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
+  function addSprite(ts, x, y, anim, enemy) {
+    var spr = { x:x, y:y, is_rope:false, is_enemy:enemy, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
     setAnim(spr, anim);
     sprites.push(spr); // render.
     return spr;
@@ -234,7 +264,7 @@ function initGame() {
   }
 
   function spawnTorch(x, y, data, ofs) {
-    addSprite(torchTS, x, y, torchAnim);
+    addSprite(torchTS, x, y, torchAnim, false);
     return ofs;
   }
 
@@ -242,7 +272,7 @@ function initGame() {
     var bottom = y - data[ofs]; // rope height.
     var speed = 2.5 * (60/1000);
     var geom = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
-    var spr = { x:x, tex:ropeImg.tex, geom:geom, mins:bottom, maxs:y, pos:bottom, speed:-speed };
+    var spr = { x:x, y:y, is_rope:true, is_enemy:false, tex:ropeImg.tex, geom:geom, mins:bottom, maxs:y, pos:bottom, speed:-speed };
     movers.push(spr); // update.
     lines.push(spr);  // render.
     spr.update = function(s, dt) {
@@ -255,8 +285,8 @@ function initGame() {
         s.speed = -s.speed;
       }
       // update the rope geometry.
-      var hw = 4, rope_v = 1/32;
-      var L = s.x - hw + 1, R = s.x + hw + 1;
+      var rope_v = 1/32;
+      var L = s.x - 4, R = s.x + 4; // texture is 8px wide with 6px rope!
       var T = s.maxs, B = Math.floor(s.pos); // snap to nearest pixel.
       var v1 = (T-B) * rope_v; // repeat texture.
       quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
@@ -265,19 +295,18 @@ function initGame() {
       quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
       s.geom.update(quadVerts);
     };
-    spr.is_rope = true; // for walkMove.
     return ofs+1;
   }
 
   function spawnSpring(x, y, data, ofs) {
-    addSprite(springTS, x, y, springBounce);
+    addSprite(springTS, x, y, springBounce, false);
     return ofs;
   }
 
   function spawnCrawler(x, y, data, ofs) {
     var left = data[ofs], right = data[ofs+1];
     var speed = 2 * (60/1000);
-    var spr = addSprite(crawlerTS, x, y, crawlerWalk);
+    var spr = addSprite(crawlerTS, x, y, crawlerWalk, true);
     pathLeftRight(spr, left, right, speed);
     return ofs+2;
   }
@@ -285,7 +314,7 @@ function initGame() {
   function spawnBat(x, y, data, ofs) {
     var left = data[ofs], right = data[ofs+1];
     var speed = 3 * (60/1000);
-    var spr = addSprite(batTS, x, y, batFly);
+    var spr = addSprite(batTS, x, y, batFly, true);
     pathLeftRight(spr, left, right, speed);
     return ofs+2;
   }
@@ -293,7 +322,7 @@ function initGame() {
   function spawnSpider(x, y, data, ofs) {
     var bottom = y - data[ofs]; // travel height.
     var speed = 1 * (60/1000);
-    var spr = addSprite(spiderTS, x, y, spiderIdle);
+    var spr = addSprite(spiderTS, x, y, spiderIdle, true);
     spr.thread = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
     lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
     movers.push(spr); // update.
@@ -400,7 +429,7 @@ function initGame() {
 
   function spawnExit(index, data, ofs) {
     var L = data[ofs], B = data[ofs+1], R = data[ofs+2], T = data[ofs+3];
-    var spr = {};
+    var spr = { x:0, y:0, is_rope:false, is_enemy:false };
     movers.push(spr); // update.
     spr.update = function(s, dt) {
       if (player && !freeze) {
@@ -413,9 +442,9 @@ function initGame() {
   }
 
   function spawnPlayer(x, y) {
-    var spr = addSprite(belleTS, x, y, esmeWalkIdle);
-    spr.health = 100;
-    spr.lastDmg = 0;
+    var spr = addSprite(belleTS, x, y, esmeWalkIdle, false);
+    spr.health = maxHealth;
+    spr.lastDmg = 250; // reset the timer.
     spr.accX = 0;
     spr.accY = 0;
     spr.velX = 0;

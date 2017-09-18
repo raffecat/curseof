@@ -1,5 +1,5 @@
-var GL_width, GL_height;  // output: backing buffer size.
-var GL_Texture, GL_Geometry, GL_viewMatrix;  // output: entry points.
+var GL_width, GL_height, GL_halfW, GL_halfH;  // output: backing buffer size.
+var GL_Texture, GL_Geometry, GL_viewMatrix, GL_setClip, GL_endClip;  // output: entry points.
 
 function GLRenderer(renderScene) {
 
@@ -55,6 +55,8 @@ function GLRenderer(renderScene) {
 
     GL_width = backingWidth;
     GL_height = backingHeight;
+    GL_halfW = Math.floor(GL_width * 0.5);  // half width in whole pixels.
+    GL_halfH = Math.floor(GL_height * 0.5); // half height in whole pixels.
   }
 
   function ortho(left, right, bottom, top, znear, zfar) {
@@ -85,21 +87,18 @@ function GLRenderer(renderScene) {
   var texChange = 0;
   var lastDT = 0;
 
-  if (debug) {
+  if (0) {
     var dcDisp = document.createElement('div');
     var dcText = document.createTextNode('0');
     dcDisp.setAttribute('style', 'position:absolute;top:2px;right:4px;font:14px sans-serif;color:#fff;z-index:20');
     dcDisp.appendChild(dcText);
     document.body.appendChild(dcDisp);
-  }
-
-  function drawDebug() {
-    if (dcText) {
+    var drawDebug = function () {
       dcText.nodeValue = ' dc: '+drawCalls+' bm: '+blendCalls+' tc: '+texChange+' dt: '+(Math.round(lastDT*10)/10);
-    }
-    drawCalls = 0;
-    blendCalls = 0;
-    texChange = 0;
+      drawCalls = 0;
+      blendCalls = 0;
+      texChange = 0;
+    };
   }
 
 
@@ -282,7 +281,7 @@ function GLRenderer(renderScene) {
 
     //gl.flush();
 
-    drawDebug();
+    if (drawDebug) drawDebug();
 
     for (;;) {
       var err = gl.getError();
@@ -295,6 +294,14 @@ function GLRenderer(renderScene) {
     gl.uniformMatrix4fv(modelViewAttribute, false, matrix);
   }
 
+  function setClip(L,B,R,T) {
+    gl.scissor(L,B,R,T);
+    gl.enable(gl.SCISSOR_TEST);
+  }
+
+  function endClip() {
+    gl.disable(gl.SCISSOR_TEST);
+  }
 
   // ---- textures.
 
@@ -472,6 +479,8 @@ function GLRenderer(renderScene) {
   GL_Texture = newTexture;
   GL_Geometry = newGeometry;
   GL_viewMatrix = setViewMatrix;
+  GL_setClip = setClip;
+  GL_endClip = endClip;
 
   initWebGL();
 
