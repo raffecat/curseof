@@ -70,13 +70,10 @@ class JSONMap:
         if blue < 0: blue = 0 # for empty cells.
         return red,0,blue,0
 
-def convert(rooms, filename, roomId, exits, isJSON=False):
+def convert(rooms, filename, roomId, exits):
     print filename
-    if isJSON:
-        with open(filename,'r') as f:
-            img = JSONMap(json.load(f))
-    else:
-        img = pygame.image.load(filename)
+    with open(filename,'r') as f:
+        img = JSONMap(json.load(f))
     w,h = img.get_size()
     L,T,R,B = w,h,0,0
 
@@ -181,9 +178,9 @@ def write(rooms, outfile):
 
 if __name__ == '__main__':
     rooms = []
-    convert(rooms, "rooftops.png", 3, [4,4])
-    convert(rooms, "upper.png", 4, [4,1, 0,1, 0,3, 3,1, 0,5, 0,6, 4,7])
-    convert(rooms, "halls.json", 0, [4,2, 1,1, 4,3, 0,4, 4,5, 4,6], True)
-    convert(rooms, "passages.png", 1, [0,2, 2,1, 1,3, 1,4])
-    convert(rooms, "basement.png", 2, [1,2, 2,2, 2,3, 2,4])
+    convert(rooms, "rooftops.json", 3, [4,4])
+    convert(rooms, "upper.json", 4, [4,1, 0,1, 0,3, 3,1, 0,5, 0,6, 4,7])
+    convert(rooms, "halls.json", 0, [4,2, 1,1, 4,3, 0,4, 4,5, 4,6])
+    convert(rooms, "passages.json", 1, [0,2, 2,1, 1,3, 1,4])
+    convert(rooms, "basement.json", 2, [1,2, 2,2, 2,3, 2,4])
     write(rooms, "../gen/rooms.json")
