@@ -14,7 +14,6 @@ var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
 var quadInds = new Uint16Array([0,1,2, 1,3,2]);
 
 // game state for spawns.
-var belleTS, torchTS, springTS, crawlerTS, batTS, spiderTS, ropeImg, sliverImg;
 var sprites = [];
 var movers = [];
 var lines = [];
@@ -33,6 +32,7 @@ function initGame() {
 
   // rendering.
 
+  var tileSet = [];
   var ready = false;
   var freeze = false;
   var player = null;
@@ -161,15 +161,7 @@ function initGame() {
   var roomGeom = GL_Geometry();
 
   var healthImg = imageCache.get('/assets/health.png', {opaque:false,wrap:false});
-  var belleImg = imageCache.get('/assets/belle.png', {opaque:false,wrap:false});
-  var torchImg = imageCache.get('/assets/flame.png', {opaque:false,wrap:false});
-  var batImg = imageCache.get('/assets/bat.png', {opaque:false,wrap:false});
-  var crawlerImg = imageCache.get('/assets/crawler.png', {opaque:false,wrap:false});
-  var spiderImg = imageCache.get('/assets/spider.png', {opaque:false,wrap:false});
-  var springImg = imageCache.get('/assets/spring.png', {opaque:false,wrap:false});
-  
-  ropeImg = imageCache.get('/assets/rope.png', {opaque:false,wrap:true});
-  sliverImg = imageCache.get('/assets/sliver.png', {opaque:false,wrap:true});
+  var belleImg = imageCache.get('/assets/belle.png', {opaque:false,wrap:false,fs:7});
 
   //var redImg = imageCache.get('/assets/red.png', {opaque:false,wrap:false});
   //var blueImg = imageCache.get('/assets/blue.png', {opaque:false,wrap:false});
@@ -178,19 +170,9 @@ function initGame() {
   // wait for all the images to finish loading.
   imageCache.wait(startGame);
 
-  var tileSet = [];
-
   function startGame() {
     tileSet = TileSet(tileImg, 32);
     healthBar = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
-
-    // generate frame sets.
-    belleTS   = FrameSet(belleImg,   32, 32, 7, 0);
-    torchTS   = FrameSet(torchImg,   32, 32, 3, 0);
-    springTS  = FrameSet(springImg,  32, 32, 4, 0);
-    crawlerTS = FrameSet(crawlerImg, 32, 32, 1, 0);
-    batTS     = FrameSet(batImg,     32, 32, 2, 0);
-    spiderTS  = FrameSet(spiderImg,  32, 32, 1, 0);
 
     //redTS = FrameSet(redImg,  32, 32, 1, 0);
     //blueTS = FrameSet(blueImg,  32, 32, 1, 0);
@@ -300,7 +282,7 @@ function initGame() {
   var esmeJump = [ 4, 1000 ];
 
   function spawnPlayer(x, y) {
-    var spr = addSprite(belleTS, x, y, esmeWalkIdle, false);
+    var spr = addSprite(belleImg.ts, x, y, esmeWalkIdle, false);
     spr.health = savedHealth;
     spr.lastDmg = 250; // reset the timer.
     spr.accX = 0;
