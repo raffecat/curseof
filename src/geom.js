@@ -62,19 +62,20 @@ function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
   return ofs;
 }
 
-function FrameSet(image, tileW, tileH, num_frames, yOfs) {
+function FrameSet(image, tileW, tileH, tile_ofs, num_frames) {
   // generate geometry for each frame in a strip of sprite frames.
-  var img_w = image.width, img_h = image.height;
-  var ts_u = tileW/img_w;
+  var img_w = image.width, img_h = image.height, w_tiles = Math.floor(img_w/tileW);
+  var tx = tile_ofs % w_tiles, ty = Math.floor(tile_ofs/w_tiles);
+  var ts_u = tileW/img_w, ts_v = tileH/img_h;
   var L = -tileW/2, B = -tileH/2; // bottom-left of this tile.
   var R = L + tileW, T = B + tileH; // top-right of this tile.
   var frames = [];
   var verts = new FloatArray(16 * num_frames); // [x,y,u,v] * [L,B,R,T] * num_frames
   var inds = new Uint16Array(6 * num_frames);  // [0,1,2,1,3,2] * num_frames
   var wr = 0, vofs = 0, iofs = 0;
-  var v0 = (yOfs+tileH)/img_h, v1 = yOfs/img_h;
+  var v0 = (ty+1) * ts_v, v1 = ty * ts_v;
   for (var x=0; x<num_frames; x++) {
-    var u0 = x * ts_u, u1 = (x+1) * ts_u;
+    var u0 = (tx+x) * ts_u, u1 = (tx+x+1) * ts_u;
     // generate vertices.
     verts[wr+0] = L;  verts[wr+1] = B;  verts[wr+2] = u0;  verts[wr+3] = v0;
     verts[wr+4] = R;  verts[wr+5] = B;  verts[wr+6] = u1;  verts[wr+7] = v0;

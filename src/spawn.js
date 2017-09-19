@@ -2,19 +2,27 @@
 var torchAnim = [ 0, 200, 1, 200, 2, 200 ];
 var springIdle = [ 0, 1000 ];
 var springBounce = [ 3, 200, 2, 200, 1, 200, 0, 1000 ];
-var crawlerWalk = [ 0, 1000 ];
-var batFly = [ 0, 500, 1, 500 ];
-var spiderIdle = [ 0, 1000 ];
-var blipIdle = [ 0, 0xFFFFFFFF ];
+var crawlerWalk = [ 0, 220, 1, 160 ];
+var batFly = [ 0, 180, 1, 180, 2, 270 ];
+var spiderDown = [ 0, 1000 ];
+var spiderUp = [ 1, 100, 2, 100 ];
+var blipIdle = [ 0, 1000 ];
 
-var torchImg = imageCache.get('/assets/flame.png', {opaque:false,wrap:false,fs:3});
-var batImg = imageCache.get('/assets/bat.png', {opaque:false,wrap:false,fs:2});
-var crawlerImg = imageCache.get('/assets/crawler.png', {opaque:false,wrap:false,fs:1});
-var spiderImg = imageCache.get('/assets/spider.png', {opaque:false,wrap:false,fs:1});
-var springImg = imageCache.get('/assets/spring.png', {opaque:false,wrap:false,fs:4});
+var spriteImg = imageCache.get('/assets/sprites.png', {opaque:false,wrap:false});
 var ropeImg = imageCache.get('/assets/rope.png', {opaque:false,wrap:true});
 var sliverImg = imageCache.get('/assets/sliver.png', {opaque:false,wrap:true});
-var blipImg = imageCache.get('/assets/blip.png', {opaque:false,wrap:false,fs:2});
+
+var torchFS, batFS, crawlFS, spiderFS, springFS, blipFS, playerFS;
+
+imageCache.wait(function(){
+  torchFS = FrameSet(spriteImg, 32, 32, 0, 3);
+  blipFS = FrameSet(spriteImg, 32, 32, 3, 1);
+  batFS = FrameSet(spriteImg, 32, 32, 8, 3);
+  crawlFS = FrameSet(spriteImg, 32, 32, 11, 2);
+  spiderFS = FrameSet(spriteImg, 32, 32, 13, 3);
+  playerFS = FrameSet(spriteImg, 32, 32, 16, 7);
+  springFS = FrameSet(spriteImg, 32, 32, 24, 4);
+});
 
 function addSprite(ts, x, y, anim, enemy) {
   var spr = { x:x, y:y, visible:true, is_rope:false, is_enemy:enemy, is_platform:false,
@@ -31,24 +39,24 @@ function pathLeftRight(spr, left, right, speed, flipper) {
   spr.pos = spr.x; // moves along X axis.
   spr.speed = speed;
   spr.update = function(s, dt) {
-    var move = dt * s.speed;
-    s.pos += move;
-    s.velX = move;
+    var oldpos = s.pos;
+    s.pos += dt * s.speed;
     if (s.pos <= s.mins) {
-      s.pos = s.mins; // FIXME: inaccurate.
+      s.pos = s.mins + (s.mins - s.pos); // reflect the overrun.
       s.speed = -s.speed;
       if (flipper) s.flip = true;
     } else if (s.pos >= s.maxs) {
-      s.pos = s.maxs; // FIXME: inaccurate.
+      s.pos = s.maxs - (s.pos - s.maxs); // reflect the overrun.
       s.speed = -s.speed;
       s.flip = false;
     }
+    s.velX = s.pos - oldpos; // for walkMove on platforms.
     s.x = Math.floor(s.pos); // snap to nearest pixel.
   };
 }
 
 function spawnTorch(x, y, data, ofs) {
-  addSprite(torchImg.ts, x, y, torchAnim, false);
+  addSprite(torchFS, x, y, torchAnim, false);
   return ofs;
 }
 
@@ -80,14 +88,14 @@ function spawnRope(x, y, data, ofs) {
 }
 
 function spawnSpring(x, y, data, ofs) {
-  addSprite(springImg.ts, x, y, springBounce, false);
+  addSprite(springFS, x, y, springBounce, false);
   return ofs;
 }
 
 function spawnCrawler(x, y, data, ofs) {
   var left = data[ofs], right = data[ofs+1];
   var speed = 2 * (60/1000);
-  var spr = addSprite(crawlerImg.ts, x, y, crawlerWalk, true);
+  var spr = addSprite(crawlFS, x, y, crawlerWalk, true);
   pathLeftRight(spr, left, right, speed, true);
   spr.flip = true;
   return ofs+2;
@@ -96,7 +104,7 @@ function spawnCrawler(x, y, data, ofs) {
 function spawnBat(x, y, data, ofs) {
   var left = data[ofs], right = data[ofs+1];
   var speed = 3 * (60/1000);
-  var spr = addSprite(batImg.ts, x, y, batFly, true);
+  var spr = addSprite(batFS, x, y, batFly, true);
   pathLeftRight(spr, left, right, speed, true);
   spr.flip = true;
   return ofs+2;
@@ -105,7 +113,7 @@ function spawnBat(x, y, data, ofs) {
 function spawnSpider(x, y, data, ofs) {
   var bottom = y - data[ofs]; // travel height.
   var speed = 1 * (60/1000);
-  var spr = addSprite(spiderImg.ts, x, y, spiderIdle, true);
+  var spr = addSprite(spiderFS, x, y, spiderDown, true);
   spr.thread = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
   lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
   movers.push(spr); // update.
@@ -119,9 +127,11 @@ function spawnSpider(x, y, data, ofs) {
     if (s.pos <= s.mins) {
       s.pos = s.mins; // FIXME: inaccurate.
       s.speed = -s.speed;
+      setAnim(s, spiderUp);
     } else if (s.pos >= s.maxs) {
       s.pos = s.maxs; // FIXME: inaccurate.
       s.speed = -s.speed;
+      setAnim(s, spiderDown);
     }
     s.y = Math.floor(s.pos); // snap to nearest pixel.
     // update the thread geometry.
@@ -135,7 +145,8 @@ function spawnSpider(x, y, data, ofs) {
 }
 
 function spawnBlip(x, y, data, ofs) {
-  var spr = addSprite(blipImg.ts, x, y, blipIdle, false);
+  // Platform that disappears shortly after it is touched.
+  var spr = addSprite(blipFS, x, y, blipIdle, false);
   spr.is_platform = true;
   spr.touched = false;
   spr.velX = 0; // for walkMove collisions.
@@ -165,9 +176,10 @@ function spawnBlip(x, y, data, ofs) {
 }
 
 function spawnPlatLR(x, y, data, ofs) {
+  // Platform moving left and right.
   var left = data[ofs], right = data[ofs+1];
   var speed = 2 * (60/1000);
-  var spr = addSprite(blipImg.ts, x, y, blipIdle, false);
+  var spr = addSprite(blipFS, x, y, blipIdle, false);
   spr.is_platform = true;
   spr.touched = false; // for walkMove dead-store.
   pathLeftRight(spr, left, right, speed, false);

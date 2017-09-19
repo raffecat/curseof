@@ -22,10 +22,6 @@ function ImageLoader(src, obj, done) {
       obj.width = img['width'];   // Image.width
       obj.height = img['height']; // Image.height
       obj.tex = GL_Texture(obj);
-      if (obj.fs) {
-        // need to generate a frame-set for the image.
-        obj.ts = FrameSet(obj, 32, 32, obj.fs, 0);
-      }
     }
     done();
   });

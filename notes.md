@@ -244,8 +244,6 @@ Sprite sheet.
 Dark and light tiles (or light sources?)
 Puzzle.
 Health recovery.
-Moving platform.
-Vanishing platform.
 In/out platform.
 Bat gfx.
 Snake.

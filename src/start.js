@@ -136,7 +136,7 @@ function initGame() {
     // render all sprites.
     for (var i=0; i<sprites.length; i++) {
       var s = sprites[i];
-      if (s.visible) {
+      if (s.visible && s.index < s.frames.length) {
         spriteTransform[0] = (s.flip ? -1 : 1);
         spriteTransform[12] = cameraTransform[12] + s.x;
         spriteTransform[13] = cameraTransform[13] + s.y;
@@ -155,14 +155,8 @@ function initGame() {
   // load tiles.
 
   var tileImg = imageCache.get('/assets/tiles.png', {opaque:true,wrap:false});
-  var roomGeom = GL_Geometry();
-
   var healthImg = imageCache.get('/assets/health.png', {opaque:false,wrap:false});
-  var belleImg = imageCache.get('/assets/belle.png', {opaque:false,wrap:false,fs:7});
-
-  //var redImg = imageCache.get('/assets/red.png', {opaque:false,wrap:false});
-  //var blueImg = imageCache.get('/assets/blue.png', {opaque:false,wrap:false});
-  //var redTS, blueTS;
+  var roomGeom = GL_Geometry();
 
   // wait for all the images to finish loading.
   imageCache.wait(startGame);
@@ -170,9 +164,6 @@ function initGame() {
   function startGame() {
     tileSet = TileSet(tileImg, 32);
     healthBar = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
-
-    //redTS = FrameSet(redImg,  32, 32, 1, 0);
-    //blueTS = FrameSet(blueImg,  32, 32, 1, 0);
 
     // send a room request to the server.
     var socket = $.w; // injected global.
@@ -211,9 +202,6 @@ function initGame() {
     lines = [];
     sprites = [];
     player = null;
-
-    // redMark = addSprite(redTS, 0, 0, spiderIdle);
-    // blueMark = addSprite(blueTS, 0, 0, spiderIdle);
 
     // generate geometry for all non-empty room tiles.
     ofs = MapGeom(roomGeom, tileSet, map, ofs, map_w, map_h);
@@ -281,7 +269,7 @@ function initGame() {
   var esmeJump = [ 4, 1000 ];
 
   function spawnPlayer(x, y) {
-    var spr = addSprite(belleImg.ts, x, y, esmeWalkIdle, false);
+    var spr = addSprite(playerFS, x, y, esmeWalkIdle, false);
     spr.health = savedHealth;
     spr.lastDmg = 250; // reset the timer.
     spr.accX = 0;
