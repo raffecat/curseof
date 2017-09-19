@@ -237,3 +237,9 @@ Tiled:
 Tile flipping (high bits)
 Chunks -> irregular chunks (a template group of chunks)
 Wang tiles -> wang chunks (for map generation)
+
+Keys and doors.
+Trampoline.
+Sprite sheet.
+Puzzle.
+Health item.

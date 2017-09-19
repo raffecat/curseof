@@ -47,6 +47,7 @@ var shaders = 'var ShaderLibrary='+JSON.stringify({
 
 // write the game-server data files.
 write('gen/game.js', minify(wrap(
+  '"use strict";\n' +
   shaders +
   untrace(concat([
     'src/raf-shim.js',
@@ -57,6 +58,8 @@ write('gen/game.js', minify(wrap(
     'src/engine.js',
     'src/geom.js',
     'src/glr.js',
+    'src/images.js',
+    'src/spawn.js',
     'src/start.js'
   ]))
 )));

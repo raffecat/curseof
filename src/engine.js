@@ -276,7 +276,7 @@ function walkMove(actor, dt, map, movers) {
 
   // test for moving ropes.
   // rope is 6px + player is 16px when climbing.
-  rL = actor.x-11, rR = L+22; // half each side (3+8)
+  var rL = actor.x-11, rR = L+22; // half each side (3+8)
   for (var i=0; i<movers.length; i++) {
     var obj = movers[i];
     if (!ladder && obj.is_rope) {

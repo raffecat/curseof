@@ -9,6 +9,16 @@ var redMark, blueMark; // debugging.
 var jumpSound = Snd_Sample('/assets/jump.wav');
 var painSound = Snd_Sample('/assets/ouch.wav');
 
+// shared temp objects for updating geometry.
+var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
+var quadInds = new Uint16Array([0,1,2, 1,3,2]);
+
+// game state for spawns.
+var belleTS, torchTS, springTS, crawlerTS, batTS, spiderTS, ropeImg, sliverImg;
+var sprites = [];
+var movers = [];
+var lines = [];
+
 function initGame() {
   showStatus( 'Loading...' );
 
@@ -25,9 +35,6 @@ function initGame() {
 
   var ready = false;
   var freeze = false;
-  var movers = [];
-  var lines = [];
-  var sprites = [];
   var player = null;
   var map = null; // current map.
   var panX=0, panY=0, panSpd=1;
@@ -148,77 +155,30 @@ function initGame() {
 
   GLRenderer(render); // for GL_* functions.
 
-  // images.
-
-  function loadImage(src, done) {
-    var img = new Image();
-    img['onload'] = function() {
-      img['onload'] = img['onerror'] = null; // gc
-      done(img);
-    };
-    img['onerror'] = function() {
-      img['onload'] = img['onerror'] = null; // gc
-      log("EImage");
-      done(null);
-    };
-    img['src'] = src;
-  }
-
-  function ImageLoader(src, obj, done) {
-    obj.name = src;
-    if (obj.wrap == null) obj.wrap = false;
-    if (obj.opaque == null) obj.opaque = false;
-    loadImage(src, function (img) {
-      if (img) {
-        obj.data = img;
-        obj.width = img['width'];   // Image.width
-        obj.height = img['height']; // Image.height
-        obj.tex = GL_Texture(obj);
-      }
-      done();
-    });
-  }
-
-  var images = CacheLoader(ImageLoader);
-
-  var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
-  var quadInds = new Uint16Array([0,1,2, 1,3,2]);
-
   // load tiles.
-  var tileImg = images.get('/assets/tiles.png', {opaque:true,wrap:false});
+
+  var tileImg = imageCache.get('/assets/tiles.png', {opaque:true,wrap:false});
   var roomGeom = GL_Geometry();
 
-  var healthImg = images.get('/assets/health.png', {opaque:false,wrap:false});
-  var belleImg = images.get('/assets/belle.png', {opaque:false,wrap:false});
-  var torchImg = images.get('/assets/flame.png', {opaque:false,wrap:false});
-  var batImg = images.get('/assets/bat.png', {opaque:false,wrap:false});
-  var crawlerImg = images.get('/assets/crawler.png', {opaque:false,wrap:false});
-  var spiderImg = images.get('/assets/spider.png', {opaque:false,wrap:false});
-  var springImg = images.get('/assets/spring.png', {opaque:false,wrap:false});
-  var ropeImg = images.get('/assets/rope.png', {opaque:false,wrap:true});
-  var sliverImg = images.get('/assets/sliver.png', {opaque:false,wrap:true});
+  var healthImg = imageCache.get('/assets/health.png', {opaque:false,wrap:false});
+  var belleImg = imageCache.get('/assets/belle.png', {opaque:false,wrap:false});
+  var torchImg = imageCache.get('/assets/flame.png', {opaque:false,wrap:false});
+  var batImg = imageCache.get('/assets/bat.png', {opaque:false,wrap:false});
+  var crawlerImg = imageCache.get('/assets/crawler.png', {opaque:false,wrap:false});
+  var spiderImg = imageCache.get('/assets/spider.png', {opaque:false,wrap:false});
+  var springImg = imageCache.get('/assets/spring.png', {opaque:false,wrap:false});
+  
+  ropeImg = imageCache.get('/assets/rope.png', {opaque:false,wrap:true});
+  sliverImg = imageCache.get('/assets/sliver.png', {opaque:false,wrap:true});
 
-  var redImg = images.get('/assets/red.png', {opaque:false,wrap:false});
-  var blueImg = images.get('/assets/blue.png', {opaque:false,wrap:false});
-  var redTS, blueTS;
+  //var redImg = imageCache.get('/assets/red.png', {opaque:false,wrap:false});
+  //var blueImg = imageCache.get('/assets/blue.png', {opaque:false,wrap:false});
+  //var redTS, blueTS;
 
   // wait for all the images to finish loading.
-  images.wait(startGame);
+  imageCache.wait(startGame);
 
-  var belleTS, torchTS, springTS, crawlerTS, batTS, spiderTS;
   var tileSet = [];
-
-  var esmeWalk = [ 1, 300, 2, 300, 3, 300, 2, 300 ];
-  var esmeWalkIdle = [ 0, 1000 ];
-  var esmeClimb = [ 5, 220, 6, 230 ];
-  var esmeClimbIdle = [ 5, 1000 ];
-  var esmeJump = [ 4, 1000 ];
-  var torchAnim = [ 0, 200, 1, 200, 2, 200 ];
-  var springIdle = [ 0, 1000 ];
-  var springBounce = [ 3, 200, 2, 200, 1, 200, 0, 1000 ];
-  var crawlerWalk = [ 0, 1000 ];
-  var batFly = [ 0, 500, 1, 500 ];
-  var spiderIdle = [ 0, 1000 ];
 
   function startGame() {
     tileSet = TileSet(tileImg, 32);
@@ -232,8 +192,8 @@ function initGame() {
     batTS     = FrameSet(batImg,     32, 32, 2, 0);
     spiderTS  = FrameSet(spiderImg,  32, 32, 1, 0);
 
-    redTS = FrameSet(redImg,  32, 32, 1, 0);
-    blueTS = FrameSet(blueImg,  32, 32, 1, 0);
+    //redTS = FrameSet(redImg,  32, 32, 1, 0);
+    //blueTS = FrameSet(blueImg,  32, 32, 1, 0);
 
     // send a room request to the server.
     var socket = $.w; // injected global.
@@ -241,128 +201,9 @@ function initGame() {
     socket.emit('r',0);
   }
 
-  function addSprite(ts, x, y, anim, enemy) {
-    var spr = { x:x, y:y, is_rope:false, is_enemy:enemy, color:GL_white, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
-    setAnim(spr, anim);
-    sprites.push(spr); // render.
-    return spr;
-  }
+  // load maps.
 
-  function pathLeftRight(spr, left, right, speed) {
-    movers.push(spr); // update.
-    spr.mins = left;
-    spr.maxs = right;
-    spr.pos = spr.x; // moves along X axis.
-    spr.speed = speed;
-    spr.update = function(s, dt) {
-      s.pos += dt * s.speed;
-      if (s.pos <= s.mins) {
-        s.pos = s.mins; // FIXME: inaccurate.
-        s.speed = -s.speed;
-        s.flip = true;
-      } else if (s.pos >= s.maxs) {
-        s.pos = s.maxs; // FIXME: inaccurate.
-        s.speed = -s.speed;
-        s.flip = false;
-      }
-      s.x = Math.floor(s.pos); // snap to nearest pixel.
-    };
-  }
-
-  function spawnTorch(x, y, data, ofs) {
-    addSprite(torchTS, x, y, torchAnim, false);
-    return ofs;
-  }
-
-  function spawnRope(x, y, data, ofs) {
-    var bottom = y - data[ofs]; // rope height.
-    var speed = 2.5 * (60/1000);
-    var geom = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
-    var spr = { x:x, y:y, is_rope:true, is_enemy:false, tex:ropeImg.tex, geom:geom, mins:bottom, maxs:y, pos:bottom, speed:-speed };
-    movers.push(spr); // update.
-    lines.push(spr);  // render.
-    spr.update = function(s, dt) {
-      s.pos += dt * s.speed;
-      if (s.pos <= s.mins) {
-        s.pos = s.mins; // FIXME: inaccurate.
-        s.speed = -s.speed;
-      } else if (s.pos >= s.maxs) {
-        s.pos = s.maxs; // FIXME: inaccurate.
-        s.speed = -s.speed;
-      }
-      // update the rope geometry.
-      var rope_v = 1/32;
-      var L = s.x - 4, R = s.x + 4; // texture is 8px wide with 6px rope!
-      var T = s.maxs, B = Math.floor(s.pos); // snap to nearest pixel.
-      var v1 = (T-B) * rope_v; // repeat texture.
-      quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
-      quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
-      quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
-      quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
-      s.geom.update(quadVerts);
-    };
-    return ofs+1;
-  }
-
-  function spawnSpring(x, y, data, ofs) {
-    addSprite(springTS, x, y, springBounce, false);
-    return ofs;
-  }
-
-  function spawnCrawler(x, y, data, ofs) {
-    var left = data[ofs], right = data[ofs+1];
-    var speed = 2 * (60/1000);
-    var spr = addSprite(crawlerTS, x, y, crawlerWalk, true);
-    pathLeftRight(spr, left, right, speed);
-    spr.flip = true;
-    return ofs+2;
-  }
-
-  function spawnBat(x, y, data, ofs) {
-    var left = data[ofs], right = data[ofs+1];
-    var speed = 3 * (60/1000);
-    var spr = addSprite(batTS, x, y, batFly, true);
-    pathLeftRight(spr, left, right, speed);
-    spr.flip = true;
-    return ofs+2;
-  }
-
-  function spawnSpider(x, y, data, ofs) {
-    var bottom = y - data[ofs]; // travel height.
-    var speed = 1 * (60/1000);
-    var spr = addSprite(spiderTS, x, y, spiderIdle, true);
-    spr.thread = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
-    lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
-    movers.push(spr); // update.
-    spr.mins = bottom;
-    spr.maxs = spr.y;
-    spr.pos = bottom; // moves along Y-axis.
-    spr.speed = -speed;
-    spr.update = function(s, dt) {
-      // move the spider.
-      s.pos += dt * s.speed;
-      if (s.pos <= s.mins) {
-        s.pos = s.mins; // FIXME: inaccurate.
-        s.speed = -s.speed;
-      } else if (s.pos >= s.maxs) {
-        s.pos = s.maxs; // FIXME: inaccurate.
-        s.speed = -s.speed;
-      }
-      s.y = Math.floor(s.pos); // snap to nearest pixel.
-      // update the thread geometry.
-      var hw = 1, rope_v = 1/32;
-      var L = s.x - hw, R = s.x + hw;
-      var T = s.maxs + 16, B = s.y; // snap to nearest pixel.
-      var v1 = (T-B) * rope_v; // repeat texture.
-      quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
-      quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
-      quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
-      quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
-      s.thread.update(quadVerts);
-    };
-    return ofs+1;
-  }
-
+  // spawn functions from spawn.js
   var codeMap = {
     "1": spawnTorch,
     "2": spawnRope,
@@ -451,6 +292,12 @@ function initGame() {
       }
     };
   }
+
+  var esmeWalk = [ 1, 300, 2, 300, 3, 300, 2, 300 ];
+  var esmeWalkIdle = [ 0, 1000 ];
+  var esmeClimb = [ 5, 220, 6, 230 ];
+  var esmeClimbIdle = [ 5, 1000 ];
+  var esmeJump = [ 4, 1000 ];
 
   function spawnPlayer(x, y) {
     var spr = addSprite(belleTS, x, y, esmeWalkIdle, false);
