@@ -185,3 +185,11 @@ function spawnPlatLR(x, y, data, ofs) {
   pathLeftRight(spr, left, right, speed, false);
   return ofs+2;
 }
+
+function spawnDoor(x, y, data, ofs) {
+  return ofs;
+}
+
+function spawnKey(x, y, data, ofs) {
+  return ofs;
+}

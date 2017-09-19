@@ -31,7 +31,7 @@ function GLRenderer(renderScene) {
     // high-definition displays:
     // read window.devicePixelRatio, scale the canvas.width/height by that factor,
     // set its style to the original window width and height (both in CSS pixels)
-    var dpr = window.devicePixelRatio || 1;
+    var dpr = 1; // window.devicePixelRatio || 1;
     log("dpr: "+dpr);
     var width = window.innerWidth || (document.documentElement ? document.documentElement.offsetWidth : document.body.offsetWidth);
     var height = window.innerHeight || (document.documentElement ? document.documentElement.offsetHeight : document.body.offsetHeight);
@@ -93,12 +93,12 @@ function GLRenderer(renderScene) {
     dcDisp.setAttribute('style', 'position:absolute;top:2px;right:4px;font:14px sans-serif;color:#fff;z-index:20');
     dcDisp.appendChild(dcText);
     document.body.appendChild(dcDisp);
-    var drawDebug = function () {
+    var drawDebug = (function () {
       dcText.nodeValue = ' dc: '+drawCalls+' bm: '+blendCalls+' tc: '+texChange+' dt: '+(Math.round(lastDT*10)/10);
       drawCalls = 0;
       blendCalls = 0;
       texChange = 0;
-    };
+    });
   }
 
 

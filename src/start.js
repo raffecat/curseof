@@ -183,6 +183,8 @@ function initGame() {
     "10": spawnSpider,
     "13": spawnBlip,
     "14": spawnPlatLR,
+    "56": spawnDoor,
+    "64": spawnKey,
   };
 
   function loadRoom(data) {
