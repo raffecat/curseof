@@ -36,15 +36,15 @@ io.sockets.on('connection', function (socket) {
   if (devMode) loadFiles(); // reload data files.
 
   socket.on('init', function (data) {
-    socket.emit( 'z', scripts.game );
+    socket.emit('z', scripts.game);
   });
 
   socket.on('r', function (id) {
-    // change room.
+    // load the first room (also change room for debugging)
     if (hasOwn.call(rooms, id)) {
       inRoom = id;
       room = rooms[id];
-      socket.emit( 'r', [room.startX, room.startY, room.map] );
+      socket.emit('r', [room.startX, room.startY, room.map]);
     }
   });
 
@@ -71,7 +71,7 @@ io.sockets.on('connection', function (socket) {
             log("bad room-entry "+entry+" in exit "+exit+" from room "+inRoom);
           }
           // notify the client.
-          socket.emit( 'r', [startX, startY, room.map] );
+          socket.emit('r', [startX, startY, room.map]);
         } else {
           log("bad room-id "+toRoom+" in exit "+exit+" from room "+inRoom);
         }

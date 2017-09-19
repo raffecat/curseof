@@ -36,6 +36,7 @@ function initGame() {
   var panX=0, panY=0, panSpd=1;
   var loadLatch=false, levelNum=0;
   var scene_L=0, scene_B=0, scene_R=0, scene_T=0;
+  var clipHeight = 40;
   var healthBar;
 
   function updateHealthBar() {
@@ -52,15 +53,17 @@ function initGame() {
     if (!ready) return;
 
     // cycle through maps with 'M' for testing.
-    if (keys[77]) {
-      if (!loadLatch) {
-        loadLatch = true;
-        levelNum += 1;
-        if (levelNum > 3) levelNum = 0;
-        $.w.emit('r',levelNum);
+    if (1) {
+      if (keys[77]) {
+        if (!loadLatch) {
+          loadLatch = true;
+          levelNum += 1;
+          if (levelNum > 3) levelNum = 0;
+          $.w.emit('r',levelNum);
+        }
+      } else {
+        loadLatch = false;
       }
-    } else {
-      loadLatch = false;
     }
 
     // update all movers.
@@ -118,7 +121,7 @@ function initGame() {
     GL_viewMatrix(noTransform);
     healthBar.draw(healthImg.tex);
 
-    GL_setClip(0, 0, GL_width, GL_height - 40);
+    GL_setClip(0, 0, GL_width, GL_height - clipHeight);
 
     // render the room geometry.
     GL_viewMatrix(cameraTransform);
@@ -214,7 +217,7 @@ function initGame() {
     // spawn sprites.
     var num_spawn = map[ofs++];
     for (var i=0; i<num_spawn; i++) {
-      // NB. sprites are relative to the top-left corner of the map (y is always negative)
+      // NB. sprites are relative to the bottom-left corner of the map.
       var tt = map[ofs], x = map[ofs+1], y = map[ofs+2]; ofs += 3;
       var spawn = codeMap[tt]; // type of sprite.
       if (spawn) {
@@ -237,7 +240,7 @@ function initGame() {
     scene_L = 0;
     scene_B = 0;
     scene_R = (drawSize * map_w);
-    scene_T = (drawSize * map_h);
+    scene_T = (drawSize * map_h) + clipHeight;
 
     // center the camera on the middle of the map.
     if (!player) {

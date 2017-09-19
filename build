@@ -13,13 +13,18 @@ var devMode = ~process.argv.indexOf('--dev');
 var obscure = {
   // textures:
   'wrap':'u', 'opaque':'o', 'width':'w', 'height':'h',
+  // frames:
+  'iofs':'a', 'inum':'b',
   // entities: (AVOID 'x' and 'y')
   'onground':'g', 'onrope':'r', 'frames':'f', 'tex':'t', 'anim':'a', 'animOfs':'b', 'animTr':'c',
   'geom':'e', 'mins':'i', 'maxs':'j', 'pos':'k', 'speed':'s', 'update':'u', 'flip':'l',
   'walkAnim':'w', 'walkIdle':'m', 'climbAnim':'n', 'climbIdle':'o', 'jumpAnim':'p',
-  'accX':'q', 'accY':'v', 'velX':'h', 'velY':'d', 'jumpHeld':'z', 'is_rope':'a0',
+  'accX':'q', 'accY':'v', 'velX':'h', 'velY':'d', 'jumpHeld':'z', 'is_rope':'A',
+  'climbing':'B', 'lastDmg':'C', 'is_enemy':'D', 'health':'E', 'color':'F', 'thread':'G',
+  // geometry:
+  'draw':'H',
   // hit-test:
-  'hitL':'a','hitR':'b','hitB':'c','hitT':'d','climb':'e','pain':'f',
+  'hitL':'a','hitR':'b','hitB':'c','hitT':'d','ladder':'e','pain':'f',
 };
 
 // minify HTML and inline CSS.
