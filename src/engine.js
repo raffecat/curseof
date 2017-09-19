@@ -108,7 +108,7 @@ var hitH = 16;        // must go all the way to bottom of feet.
 var hitH2 = 32 - 2;   // leave some head clearance for grabbing ledges.
 var ropeW = 8;        // center must be within 8px of the rope.
 
-var RED = { r:1.0, g:0.5, b:0.5, a:1.0 };
+var RED = { r:0.47, g:0.094, b:0.075, a:0.15 };
 
 function walkMove(actor, dt, map, movers) {
 

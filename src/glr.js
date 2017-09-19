@@ -120,7 +120,7 @@ function GLRenderer(renderScene) {
   var blendState = false;
   var currentTex = null;
 
-  var white = { r:1.0, g:1.0, b:1.0, a:1.0 };
+  var white = { r:0.0, g:0.0, b:0.0, a:1.0 };
   var currentColor = white;
   GL_white = white;
 
@@ -282,7 +282,7 @@ function GLRenderer(renderScene) {
     //gl.clearColor(0.2, 0.2, 0.3, 1.0);
     //gl.clear(clearBits); // seems to consume CPU in IE11 fallback.
 
-    gl.uniform4f(colorAttribute, 1.0, 1.0, 1.0, 1.0);
+    gl.uniform4f(colorAttribute, GL_white.r, GL_white.g, GL_white.b, GL_white.a);
     currentColor = white;
 
     gl.uniformMatrix4fv(projMatrixAttribute, false, projMatrix);
@@ -316,7 +316,7 @@ function GLRenderer(renderScene) {
   function setColor(col) {
     if (col !== currentColor) {
       currentColor = col;
-      gl.uniform4f(colorAttribute, col.r, col.g, col.b, 1.0);
+      gl.uniform4f(colorAttribute, col.r, col.g, col.b, col.a);
     }
   }
 
