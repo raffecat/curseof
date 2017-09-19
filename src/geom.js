@@ -1,4 +1,16 @@
 
+// shared temp objects for updating geometry.
+var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
+var quadInds = new Uint16Array([0,1,2, 1,3,2]);
+
+function updateQuad(geom, L, B, R, T, u0, v0, u1, v1) {
+  quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = u0; quadVerts[3] = v1;
+  quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = u1; quadVerts[7] = v1;
+  quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = u0; quadVerts[11] = v0;
+  quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = u1; quadVerts[15] = v0;
+  geom.update(quadVerts);
+}
+
 function TileSet(image, tileSize) {
   // set of tile coords for MapGeom.
   var img_w = image.width, img_h = image.height;

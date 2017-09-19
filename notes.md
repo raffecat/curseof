@@ -241,5 +241,17 @@ Wang tiles -> wang chunks (for map generation)
 Keys and doors.
 Trampoline.
 Sprite sheet.
+Dark and light tiles (or light sources?)
 Puzzle.
-Health item.
+Health recovery.
+Moving platform.
+Vanishing platform.
+In/out platform.
+Bat gfx.
+Snake.
+Axe thrower (Horiz)
+Up/down spikes.
+Spear trap (side)
+Dart trap.
+Falling brick.
+Torch shader.

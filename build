@@ -55,9 +55,9 @@ write('gen/game.js', minify(wrap(
     'src/cache.js',
     'src/audio.js',
     'src/controls.js',
-    'src/engine.js',
-    'src/geom.js',
     'src/glr.js',
+    'src/geom.js',
+    'src/engine.js',
     'src/images.js',
     'src/spawn.js',
     'src/start.js'

@@ -68,11 +68,7 @@ function spawnRope(x, y, data, ofs) {
     var L = s.x - 4, R = s.x + 4; // texture is 8px wide with 6px rope!
     var T = s.maxs, B = Math.floor(s.pos); // snap to nearest pixel.
     var v1 = (T-B) * rope_v; // repeat texture.
-    quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
-    quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
-    quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
-    quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
-    s.geom.update(quadVerts);
+    updateQuad(s.geom, L, B, R, T, 0, 0, 1, v1);
   };
   return ofs+1;
 }
@@ -127,11 +123,7 @@ function spawnSpider(x, y, data, ofs) {
     var L = s.x - hw, R = s.x + hw;
     var T = s.maxs + 16, B = s.y; // snap to nearest pixel.
     var v1 = (T-B) * rope_v; // repeat texture.
-    quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = v1;
-    quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = 1; quadVerts[7] = v1;
-    quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
-    quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = 1; quadVerts[15] = 0;
-    s.thread.update(quadVerts);
+    updateQuad(s.thread, L, B, R, T, 0, 0, 1, v1);
   };
   return ofs+1;
 }

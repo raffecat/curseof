@@ -9,10 +9,6 @@ var redMark, blueMark; // debugging.
 var jumpSound = Snd_Sample('/assets/jump.wav');
 var painSound = Snd_Sample('/assets/ouch.wav');
 
-// shared temp objects for updating geometry.
-var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
-var quadInds = new Uint16Array([0,1,2, 1,3,2]);
-
 // game state for spawns.
 var sprites = [];
 var movers = [];
@@ -48,11 +44,7 @@ function initGame() {
       var L = -GL_halfW + 8, R = L + (2 * health);
       var T = GL_halfH-8, B = T-15;
       var u = (R-L) / (2 * maxHealth);
-      quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = 0; quadVerts[3] = 1;
-      quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = u; quadVerts[7] = 1;
-      quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = 0; quadVerts[11] = 0;
-      quadVerts[12] = R; quadVerts[13] = T;  quadVerts[14] = u; quadVerts[15] = 0;
-      healthBar.update(quadVerts);
+      updateQuad(healthBar, L, B, R, T, 0, 0, u, 1);
     }
   }
 
