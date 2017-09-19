@@ -93,6 +93,31 @@ function hitTestMap(map, L, B, R, T, falling, res) {
   res.ladder = ladder; res.pain = pain;
 }
 
+function hitTestPlatforms(actor, L, R, B, dy, res) {
+  // check for a supporting platform entity under feet.
+  // requires res.hitB to be valid (from hitTestMap)
+  var hit = null;
+  for (var i=0; i<movers.length; i++) {
+    var obj = movers[i];
+    if (obj.is_platform) {
+      var px = obj.x, py = obj.y+16; // top-center of pixels player stands on.
+      // actor is horizontally overlapping the platform, and actor's
+      // feet are above the platform, and feet+dy are on or below it.
+      if (R >= px-10 && L <= px+10 && B >= py && B+dy <= py) {
+        if (py > res.hitB) {
+          res.hitB = py; // platform is above the hit-test result.
+          hit = obj; // find the highest platform hit.
+        }
+      }
+    }
+  }
+  if (hit) {
+    hit.touched = true; // for platform update.
+    return hit.velX || 0; // to move actors on the platform.
+  }
+  return 0; // no platform velocity.
+}
+
 var jumpVelocity = 5 * (60/1000);
 // var jumpExtra = 1 * (60/1000);
 var gravity = 0.01 * (60/1000);
@@ -199,12 +224,9 @@ function walkMove(actor, dt, map, movers) {
     else if (actor.climbing) toAnim(actor, actor.climbIdle);
   }
 
-  // accumulate intent-to-move over frames, but only move by whole pixels.
-  actor.accX += moveX; actor.accY += moveY;
-  // use bitwise OR to truncate (number of whole pixels)
-  var dx = actor.accX|0, dy = actor.accY|0;
-  // remove the whole-number part from the accumulators.
-  actor.accX -= dx; actor.accY -= dy;
+  actor.accY += moveY; // accumulate intent-to-move over frames.
+  var dy = actor.accY|0; // use bitwise OR to truncate (number of whole pixels)
+  actor.accY -= dy; // remove the whole-number part from the accumulators.
 
   // player is rendered 16 pixels on either side of its (x,y) position.
   // in other words, the anchor point is on the top-right of the bottom-left 16x16 quarter.
@@ -216,23 +238,20 @@ function walkMove(actor, dt, map, movers) {
   // vertical movement first, so players can catch ledges as they fall.
   var pain = false;
   var ladder = false;
+  var platVelX = 0;
   actor.onground = false; // unless set below.
   var L = actor.x-hitW, R = L+hitW2, B = actor.y-hitH, T = B+hitH2;
   if (dy < 0) {
     // moving down (due to gravity or climbing down)
     // NB. need to test the full B..T height to grip ladders above feet!
-    // -> if you're falling (not yet on a ladder)
-    // -> this will detect the ladder beneath us,
-    // -> and then, we need to decide not to fall!
     hitTestMap(map, L, B+dy, R, T-4, !climbing, res);
     pain = pain || res.pain;
     ladder = ladder || res.ladder;
-    // want to avoid falling down ladders, but for that to work, we need to know
-    // the hitB for climbing tiles as well as the hitB for solid tiles.
-    actor.y += res.hitB - B; // vector from B down to support (ground or ladder)
+    // check for a supporting platform under feet.
+    platVelX = hitTestPlatforms(actor, L, R, B, dy, res);
+    actor.y += res.hitB - B; // vector from B down to support (ground, ladder, platform)
     if (res.hitB !== B+dy) {
-      // trace hit something (must be ground or ladder)
-      actor.onground = true;
+      actor.onground = true; // trace hit something.
     }
   } else if (dy > 0) {
     // moving up (trace 1 extra pixel so we can stay 1 pixel away from the surface)
@@ -252,11 +271,17 @@ function walkMove(actor, dt, map, movers) {
     hitTestMap(map, L, B-1, R, T-4, true, res);
     pain = pain || res.pain;
     ladder = ladder || res.ladder;
+    // check for a supporting platform under feet.
+    platVelX = hitTestPlatforms(actor, L, R, B, -1, res);
     if (res.hitB === B) {
       // trace hit something (must be ground or ladder)
       actor.onground = true;
     }
   }
+
+  actor.accX += moveX + platVelX; // accumulate intent-to-move over frames.
+  var dx = actor.accX|0; // use bitwise OR to truncate (number of whole pixels)
+  actor.accX -= dx; // remove the whole-number part from the accumulators.
 
   // hit-test the actor bounds, expanded by horizontal movement.
   B = actor.y-hitH; T = B+hitH2;

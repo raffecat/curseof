@@ -10,6 +10,8 @@ DEFS = {
     8: ('Crawler', 'LR', 16),
     9: ('Bat', 'LR', 16),
     10: ('Spider', 'D', 12),   # 10 (top) -> 12 (spider)
+    13: ('Blip', '', 0),
+    14: ('Blip', 'LR', 16),
     # exits.
     24: ('Exit', 'X', 0),
     25: ('Exit', 'X', 1),

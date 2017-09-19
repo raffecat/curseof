@@ -136,13 +136,15 @@ function initGame() {
     // render all sprites.
     for (var i=0; i<sprites.length; i++) {
       var s = sprites[i];
-      spriteTransform[0] = (s.flip ? -1 : 1);
-      spriteTransform[12] = cameraTransform[12] + s.x;
-      spriteTransform[13] = cameraTransform[13] + s.y;
-      GL_viewMatrix(spriteTransform);
-      GL_setColor(s.color);
-      var frame = s.frames[s.index];
-      s.geom.draw(s.tex, frame.iofs, frame.inum);
+      if (s.visible) {
+        spriteTransform[0] = (s.flip ? -1 : 1);
+        spriteTransform[12] = cameraTransform[12] + s.x;
+        spriteTransform[13] = cameraTransform[13] + s.y;
+        GL_viewMatrix(spriteTransform);
+        GL_setColor(s.color);
+        var frame = s.frames[s.index];
+        s.geom.draw(s.tex, frame.iofs, frame.inum);
+      }
     }
 
     GL_endClip();
@@ -188,6 +190,8 @@ function initGame() {
     "8": spawnCrawler,
     "9": spawnBat,
     "10": spawnSpider,
+    "13": spawnBlip,
+    "14": spawnPlatLR,
   };
 
   function loadRoom(data) {
