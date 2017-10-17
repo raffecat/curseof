@@ -1,29 +1,26 @@
+"use strict";
 
-function getElem(id) { return document.getElementById(id); }
+import { ShaderLibrary } from '../gen/shaders';
+
+import * as glr from './glr';
+import { log, FloatArray } from './defs';
+import { codeMap, playerFS, addSprite, sprites, movers, lines } from './spawn';
+import { keys } from './controls';
+import { imageCache } from './images';
+import { getElem, removeElem } from './dom';
+import { TileSet, MapGeom, updateQuad, quadVerts, quadInds } from './geom';
+import { walkMove, animateEnts } from './engine';
+
 function showStatus(msg) { getElem('p').firstChild.nodeValue = msg; }
-function removeElem(id,e) { (e=getElem(id)).parentNode.removeChild(e); }
-
-var redMark, blueMark; // debugging.
-
-// sounds.
-var jumpSound = Snd_Sample('/assets/jump.wav');
-var painSound = Snd_Sample('/assets/ouch.wav');
-
-// game state for spawns.
-var sprites = [];
-var movers = [];
-var lines = [];
 
 function initGame() {
-  showStatus( 'Loading...' );
+  showStatus( 'Loading...' ); 
 
-  var IDENTITY = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1];
+  const noTransform = new FloatArray(glr.IDENTITY);
+  const cameraTransform = new FloatArray(glr.IDENTITY);
+  const spriteTransform = new FloatArray(glr.IDENTITY);
 
-  var noTransform = new FloatArray(IDENTITY);
-  var cameraTransform = new FloatArray(IDENTITY);
-  var spriteTransform = new FloatArray(IDENTITY);
-
-  var maxHealth = 103;
+  const maxHealth = 103;
   var savedHealth = maxHealth; // new game.
 
   // rendering.
@@ -42,8 +39,8 @@ function initGame() {
   function updateHealthBar() {
     if (player) {
       var health = Math.max(0, player.health);
-      var L = -GL_halfW + 8, R = L + (2 * health);
-      var T = GL_halfH-8, B = T-15;
+      var L = -glr.halfW + 8, R = L + (2 * health);
+      var T = glr.halfH-8, B = T-15;
       var u = (R-L) / (2 * maxHealth);
       updateQuad(healthBar, L, B, R, T, 0, 0, u, 1);
     }
@@ -59,7 +56,7 @@ function initGame() {
           loadLatch = true;
           levelNum += 1;
           if (levelNum > 3) levelNum = 0;
-          $.w.emit('r',levelNum);
+          $['w']['emit']('r',levelNum);
         }
       } else {
         loadLatch = false;
@@ -67,14 +64,14 @@ function initGame() {
     }
 
     // update all movers.
-    for (var i=0; i<movers.length; i++) {
-      var s = movers[i];
+    for (let i=0; i<movers.length; i++) {
+      let s = movers[i];
       s.update(s, dt);
     }
 
     // move the player.
     if (player && !freeze) {
-      walkMove(player, dt, map, movers);
+      walkMove(player, dt, map);
       updateHealthBar();
       if (player.health < 1) {
         // DEAD.
@@ -93,7 +90,7 @@ function initGame() {
     }
 
     // confine the camera to the scene.
-    var camHW = Math.floor(GL_width * 0.5), camHH = Math.floor(GL_height * 0.5);
+    var camHW = Math.floor(glr.width * 0.5), camHH = Math.floor(glr.height * 0.5);
     var camL = scene_L + camHW, camB = scene_B + camHH, camR = scene_R - camHW, camT = scene_T - camHH;
     if (camL >= camR) {
       cameraTransform[12] = -Math.floor((scene_L + scene_R) * 0.5); // center of scene.
@@ -118,74 +115,60 @@ function initGame() {
     animateEnts(sprites, dt);
 
     // draw the health bar.
-    GL_viewMatrix(noTransform);
+    glr.setViewMatrix(noTransform);
     healthBar.draw(healthImg.tex);
 
-    GL_setClip(0, 0, GL_width, GL_height - clipHeight);
+    glr.setClip(0, 0, glr.width, glr.height - clipHeight);
 
     // render the room geometry.
-    GL_viewMatrix(cameraTransform);
+    glr.setViewMatrix(cameraTransform);
     roomGeom.draw(tileImg.tex);
 
     // render all lines (in world space)
-    for (var i=0; i<lines.length; i++) {
-      var s = lines[i];
+    for (let i=0; i<lines.length; i++) {
+      let s = lines[i];
       s.geom.draw(s.tex, 0, 6);
     }
 
     // render all sprites.
-    for (var i=0; i<sprites.length; i++) {
-      var s = sprites[i];
+    for (let i=0; i<sprites.length; i++) {
+      let s = sprites[i];
       if (s.visible && s.index < s.frames.length) {
         spriteTransform[0] = (s.flip ? -1 : 1);
         spriteTransform[12] = cameraTransform[12] + s.x;
         spriteTransform[13] = cameraTransform[13] + s.y;
-        GL_viewMatrix(spriteTransform);
-        GL_setColor(s.color);
-        var frame = s.frames[s.index];
+        glr.setViewMatrix(spriteTransform);
+        glr.setColor(s.color);
+        let frame = s.frames[s.index];
         s.geom.draw(s.tex, frame.iofs, frame.inum);
       }
     }
 
-    GL_endClip();
+    glr.endClip();
   }
 
-  GLRenderer(render); // for GL_* functions.
+  glr.init(render, ShaderLibrary);
 
   // load tiles.
 
-  var tileImg = imageCache.get('/assets/tiles.png', {opaque:true,wrap:false});
-  var healthImg = imageCache.get('/assets/health.png', {opaque:false,wrap:false});
-  var roomGeom = GL_Geometry();
+  const tileImg = imageCache.get('/assets/tiles.png', {opaque:true,wrap:false});
+  const healthImg = imageCache.get('/assets/health.png', {opaque:false,wrap:false});
+  const roomGeom = glr.Geometry();
 
   // wait for all the images to finish loading.
   imageCache.wait(startGame);
 
   function startGame() {
     tileSet = TileSet(tileImg, 32);
-    healthBar = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
+    healthBar = glr.Geometry(quadVerts, quadInds, true, true); // dynamic.
 
     // send a room request to the server.
-    var socket = $.w; // injected global.
-    socket.on('r', loadRoom);
-    socket.emit('r',0);
+    var socket = $['w']; // injected global.
+    socket['on']('r', loadRoom);
+    socket['emit']('r',0);
   }
 
   // load maps.
-
-  // spawn functions from spawn.js
-  var codeMap = {
-    "1": spawnTorch,
-    "2": spawnRope,
-    "5": spawnSpring,
-    "8": spawnCrawler,
-    "9": spawnBat,
-    "10": spawnSpider,
-    "13": spawnBlip,
-    "14": spawnPlatLR,
-    "56": spawnDoor,
-    "64": spawnKey,
-  };
 
   function loadRoom(data) {
     // log("Room:", data.width, data.height, data.map, data.spawn);
@@ -200,9 +183,9 @@ function initGame() {
     if (player) savedHealth = player.health;
 
     // reset room state.
-    movers = [];
-    lines = [];
-    sprites = [];
+    movers.length = 0;
+    lines.length = 0;
+    sprites.length = 0;
     player = null;
 
     // generate geometry for all non-empty room tiles.
@@ -215,7 +198,7 @@ function initGame() {
       var tt = map[ofs], x = map[ofs+1], y = map[ofs+2]; ofs += 3;
       var spawn = codeMap[tt]; // type of sprite.
       if (spawn) {
-        ofs = spawn(x, y, map, ofs);
+        ofs = spawn(x, y, map, ofs, tt);
       } else { log("Espawn:"+tt); break; }
     }
 
@@ -251,24 +234,24 @@ function initGame() {
   }
 
   function spawnExit(index, data, ofs) {
-    var L = data[ofs], B = data[ofs+1], R = data[ofs+2], T = data[ofs+3];
-    var spr = { x:0, y:0, is_rope:false, is_enemy:false };
+    const L = data[ofs], B = data[ofs+1], R = data[ofs+2], T = data[ofs+3];
+    const spr = { x:0, y:0, visible:false, is_rope:false, is_enemy:false, is_platform:false, update:null };
     movers.push(spr); // update.
     spr.update = function(s, dt) {
       if (player && !freeze) {
         if (player.x >= L && player.x <= R && player.y >= B && player.y <= T) {
           freeze = true;
-          $.w.emit('x',index);
+          $['w']['emit']('x',index);
         }
       }
     };
   }
 
-  var esmeWalk = [ 1, 300, 2, 300, 3, 300, 2, 300 ];
-  var esmeWalkIdle = [ 0, 1000 ];
-  var esmeClimb = [ 5, 220, 6, 230 ];
-  var esmeClimbIdle = [ 5, 1000 ];
-  var esmeJump = [ 4, 1000 ];
+  const esmeWalk = [ 1, 300, 2, 300, 3, 300, 2, 300 ];
+  const esmeWalkIdle = [ 0, 1000 ];
+  const esmeClimb = [ 5, 220, 6, 230 ];
+  const esmeClimbIdle = [ 5, 1000 ];
+  const esmeJump = [ 4, 1000 ];
 
   function spawnPlayer(x, y) {
     var spr = addSprite(playerFS, x, y, esmeWalkIdle, false);
@@ -299,7 +282,7 @@ function initGame() {
   try {
     initGame();
   } catch (err) {
-    window.console && console.log(err);
+    log(err);
     if ( ~err.toString().indexOf('WebGL') ) {
         showStatus( 'No WebGL' );
     } else if ( ~err.toString().indexOf('getContext') ) {

@@ -1,0 +1,17 @@
+#!/usr/bin/env node
+"use strict";
+
+var fs = require('fs');
+
+// read and minify shaders.
+var shaders = 'var ShaderLibrary='+JSON.stringify({
+  vertex:   norm_ws(read('src/shader.vertex', 'utf8')),
+  fragment: norm_ws(read('src/shader.fragment', 'utf8')),
+})+';\n';
+
+// write the game-server data files.
+write('gen/shaders.js', 'export ' +shaders);
+
+function read(from) { return fs.readFileSync(from, 'utf8'); }
+function write(to, text) { fs.writeFileSync(to, text, 'utf8'); }
+function norm_ws(text) { return text.replace(/[ \t]+/g,' ').replace(/\n\s*/g,'\n'); }

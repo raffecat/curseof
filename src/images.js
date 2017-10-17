@@ -1,3 +1,9 @@
+"use strict";
+
+import { log } from './defs';
+import { CacheLoader } from './cache';
+import { Texture } from './glr';
+
 function loadImage(src, done) {
   var img = new Image();
   img['onload'] = function() {
@@ -21,10 +27,10 @@ function ImageLoader(src, obj, done) {
       obj.data = img;
       obj.width = img['width'];   // Image.width
       obj.height = img['height']; // Image.height
-      obj.tex = GL_Texture(obj);
+      obj.tex = Texture(obj);
     }
     done();
   });
 }
 
-var imageCache = CacheLoader(ImageLoader);
+export var imageCache = CacheLoader(ImageLoader);

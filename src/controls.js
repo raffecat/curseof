@@ -1,7 +1,7 @@
 
 /*
 
-var mouseIsDown = false;
+export var mouseIsDown = false;
 
 function onMouseDown(event) {
   event.preventDefault();
@@ -33,7 +33,7 @@ document.addEventListener( 'mousewheel', onMouseWheel, false );
 
 */
 
-var keys = [];
+export var keys = [];
 
 function onKeyDown(event) {
   // event.preventDefault();

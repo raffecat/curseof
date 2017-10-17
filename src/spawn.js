@@ -1,18 +1,52 @@
+"use strict";
 
-var torchAnim = [ 0, 200, 1, 200, 2, 200 ];
-var springIdle = [ 0, 1000 ];
-var springBounce = [ 3, 200, 2, 200, 1, 200, 0, 1000 ];
-var crawlerWalk = [ 0, 220, 1, 160 ];
-var batFly = [ 0, 180, 1, 180, 2, 270 ];
-var spiderDown = [ 0, 1000 ];
-var spiderUp = [ 1, 100, 2, 100 ];
-var blipIdle = [ 0, 1000 ];
+import { log } from './defs';
+import { imageCache } from './images';
+import { Geometry, white } from './glr';
+import { FrameSet, updateQuad, quadVerts, quadInds } from './geom';
+import { setAnim } from './engine';
 
-var spriteImg = imageCache.get('/assets/sprites.png', {opaque:false,wrap:false});
-var ropeImg = imageCache.get('/assets/rope.png', {opaque:false,wrap:true});
-var sliverImg = imageCache.get('/assets/sliver.png', {opaque:false,wrap:true});
+// game state for spawns.
+export const sprites = [];
+export const movers = [];
+export const lines = [];
 
-var torchFS, batFS, crawlFS, spiderFS, springFS, blipFS, playerFS;
+// spawn functions from spawn.js
+export const codeMap = {
+  "1": spawnTorch,
+  "2": spawnRope,
+  "5": spawnSpring,
+  "8": spawnCrawler,
+  "9": spawnBat,
+  "10": spawnSpider,
+  "13": spawnBlip,
+  "14": spawnPlatLR,
+  "56": spawnDoor,
+  "57": spawnDoor,
+  "58": spawnDoor,
+  "59": spawnDoor,
+  "64": spawnItem,
+  "65": spawnItem,
+  "66": spawnItem,
+  "67": spawnItem,
+};
+
+export var playerFS; // player frame-set.
+
+const noAnimate = [ 0, 1000 ];
+const torchAnim = [ 0, 200, 1, 200, 2, 200 ];
+const springBounce = [ 3, 200, 2, 200, 1, 200, 0, 1000 ];
+const crawlerWalk = [ 0, 220, 1, 160 ];
+const batFly = [ 0, 180, 1, 180, 2, 270 ];
+const spiderDown = [ 0, 1000 ];
+const spiderUp = [ 1, 100, 2, 100 ];
+
+const spriteImg = imageCache.get('/assets/sprites.png', {opaque:false,wrap:false});
+const ropeImg = imageCache.get('/assets/rope.png', {opaque:false,wrap:true});
+const sliverImg = imageCache.get('/assets/sliver.png', {opaque:false,wrap:true});
+
+var torchFS, batFS, crawlFS, spiderFS, springFS, blipFS;
+const doorFS = [], keyFS = [];
 
 imageCache.wait(function(){
   torchFS = FrameSet(spriteImg, 32, 32, 0, 3);
@@ -22,11 +56,15 @@ imageCache.wait(function(){
   spiderFS = FrameSet(spriteImg, 32, 32, 13, 3);
   playerFS = FrameSet(spriteImg, 32, 32, 16, 7);
   springFS = FrameSet(spriteImg, 32, 32, 24, 4);
+  for (let i=0; i<8; i++) {
+    doorFS[i] = FrameSet(spriteImg, 32, 32, 40+i, 1);
+    keyFS[i] = FrameSet(spriteImg, 32, 32, 48+i, 1);
+  }
 });
 
-function addSprite(ts, x, y, anim, enemy) {
-  var spr = { x:x, y:y, visible:true, is_rope:false, is_enemy:enemy, is_platform:false,
-              color:GL_white, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
+export function addSprite(ts, x, y, anim, enemy) {
+  const spr = { x:x, y:y, visible:true, is_rope:false, is_enemy:enemy, is_platform:false, update:null,
+                color:white, tex:ts.tex, geom:ts.geom, frames:ts.frames, flip:false, index:0 };
   setAnim(spr, anim);
   sprites.push(spr); // render.
   return spr;
@@ -34,24 +72,23 @@ function addSprite(ts, x, y, anim, enemy) {
 
 function pathLeftRight(spr, left, right, speed, flipper) {
   movers.push(spr); // update.
-  spr.mins = left;
-  spr.maxs = right;
-  spr.pos = spr.x; // moves along X axis.
-  spr.speed = speed;
+  const mins = left;
+  const maxs = right;
+  var pos = spr.x; // moves along X axis.
   spr.update = function(s, dt) {
-    var oldpos = s.pos;
-    s.pos += dt * s.speed;
-    if (s.pos <= s.mins) {
-      s.pos = s.mins + (s.mins - s.pos); // reflect the overrun.
-      s.speed = -s.speed;
+    const oldpos = pos;
+    pos += dt * speed;
+    if (pos <= mins) {
+      pos = mins + (mins - pos); // reflect the overrun.
+      speed = -speed;
       if (flipper) s.flip = true;
-    } else if (s.pos >= s.maxs) {
-      s.pos = s.maxs - (s.pos - s.maxs); // reflect the overrun.
-      s.speed = -s.speed;
+    } else if (pos >= maxs) {
+      pos = maxs - (pos - maxs); // reflect the overrun.
+      speed = -speed;
       s.flip = false;
     }
-    s.velX = s.pos - oldpos; // for walkMove on platforms.
-    s.x = Math.floor(s.pos); // snap to nearest pixel.
+    s.velX = pos - oldpos; // for walkMove on platforms.
+    s.x = Math.floor(pos); // snap to nearest pixel.
   };
 }
 
@@ -61,29 +98,34 @@ function spawnTorch(x, y, data, ofs) {
 }
 
 function spawnRope(x, y, data, ofs) {
-  var bottom = y - data[ofs]; // rope height.
-  var speed = 2.5 * (60/1000);
-  var geom = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
-  var spr = { x:x, y:y, visible:true, is_rope:true, is_enemy:false, is_platform:false,
-              tex:ropeImg.tex, geom:geom, mins:bottom, maxs:y, pos:bottom, speed:-speed };
-  movers.push(spr); // update.
-  lines.push(spr);  // render.
-  spr.update = function(s, dt) {
-    s.pos += dt * s.speed;
-    if (s.pos <= s.mins) {
-      s.pos = s.mins; // FIXME: inaccurate.
-      s.speed = -s.speed;
-    } else if (s.pos >= s.maxs) {
-      s.pos = s.maxs; // FIXME: inaccurate.
-      s.speed = -s.speed;
+  const bottom = y - data[ofs]; // rope height.
+  const mins = bottom;
+  const maxs = y;
+  var speed = -2.5 * (60/1000);
+  var pos = bottom;
+  const geom = Geometry(quadVerts, quadInds, true, true); // dynamic.
+  const rope = { x:x, y:y, visible:true, is_rope:true, is_enemy:false, is_platform:false, update:updateRope };
+  movers.push(rope);
+  function updateRope(s, dt) {
+    pos += dt * speed;
+    if (pos <= mins) {
+      pos = mins; // FIXME: inaccurate.
+      speed = -speed;
+    } else if (pos >= maxs) {
+      pos = maxs; // FIXME: inaccurate.
+      speed = -speed;
     }
     // update the rope geometry.
-    var rope_v = 1/32;
-    var L = s.x - 4, R = s.x + 4; // texture is 8px wide with 6px rope!
-    var T = s.maxs, B = Math.floor(s.pos); // snap to nearest pixel.
-    var v1 = (T-B) * rope_v; // repeat texture.
-    updateQuad(s.geom, L, B, R, T, 0, 0, 1, v1);
-  };
+    const rope_v = 1/32;
+    const L = s.x - 4, R = s.x + 4; // texture is 8px wide with 6px rope!
+    const T = maxs, B = Math.floor(pos); // snap to nearest pixel.
+    const v1 = (T-B) * rope_v; // repeat texture.
+    updateQuad(geom, L, B, R, T, 0, 0, 1, v1);
+    // update rope collision state.
+    rope.maxs = T;
+    rope.pos = B;
+  }
+  lines.push({ tex:ropeImg.tex, geom:geom });  // render.
   return ofs+1;
 }
 
@@ -93,28 +135,28 @@ function spawnSpring(x, y, data, ofs) {
 }
 
 function spawnCrawler(x, y, data, ofs) {
-  var left = data[ofs], right = data[ofs+1];
-  var speed = 2 * (60/1000);
-  var spr = addSprite(crawlFS, x, y, crawlerWalk, true);
+  const left = data[ofs], right = data[ofs+1];
+  const speed = 2 * (60/1000);
+  const spr = addSprite(crawlFS, x, y, crawlerWalk, true);
   pathLeftRight(spr, left, right, speed, true);
   spr.flip = true;
   return ofs+2;
 }
 
 function spawnBat(x, y, data, ofs) {
-  var left = data[ofs], right = data[ofs+1];
-  var speed = 3 * (60/1000);
-  var spr = addSprite(batFS, x, y, batFly, true);
+  const left = data[ofs], right = data[ofs+1];
+  const speed = 3 * (60/1000);
+  const spr = addSprite(batFS, x, y, batFly, true);
   pathLeftRight(spr, left, right, speed, true);
   spr.flip = true;
   return ofs+2;
 }
 
 function spawnSpider(x, y, data, ofs) {
-  var bottom = y - data[ofs]; // travel height.
-  var speed = 1 * (60/1000);
-  var spr = addSprite(spiderFS, x, y, spiderDown, true);
-  spr.thread = GL_Geometry(quadVerts, quadInds, true, true); // dynamic.
+  const bottom = y - data[ofs]; // travel height.
+  const speed = 1 * (60/1000);
+  const spr = addSprite(spiderFS, x, y, spiderDown, true);
+  spr.thread = Geometry(quadVerts, quadInds, true, true); // dynamic.
   lines.push({ tex:sliverImg.tex, geom:spr.thread });  // render.
   movers.push(spr); // update.
   spr.mins = bottom;
@@ -135,10 +177,10 @@ function spawnSpider(x, y, data, ofs) {
     }
     s.y = Math.floor(s.pos); // snap to nearest pixel.
     // update the thread geometry.
-    var hw = 1, rope_v = 1/32;
-    var L = s.x - hw, R = s.x + hw;
-    var T = s.maxs + 16, B = s.y; // snap to nearest pixel.
-    var v1 = (T-B) * rope_v; // repeat texture.
+    const hw = 1, rope_v = 1/32;
+    const L = s.x - hw, R = s.x + hw;
+    const T = s.maxs + 16, B = s.y; // snap to nearest pixel.
+    const v1 = (T-B) * rope_v; // repeat texture.
     updateQuad(s.thread, L, B, R, T, 0, 0, 1, v1);
   };
   return ofs+1;
@@ -146,29 +188,29 @@ function spawnSpider(x, y, data, ofs) {
 
 function spawnBlip(x, y, data, ofs) {
   // Platform that disappears shortly after it is touched.
-  var spr = addSprite(blipFS, x, y, blipIdle, false);
+  const spr = addSprite(blipFS, x, y, noAnimate, false);
   spr.is_platform = true;
   spr.touched = false;
   spr.velX = 0; // for walkMove collisions.
-  spr.pt = 0;
+  var pt = 0;
   movers.push(spr); // update.
   spr.update = function(s, dt) {
     if (spr.touched) {
       // touched by a player, increase the timer and vanish.
-      spr.pt += dt;
-      if (spr.pt > 1000) {
+      pt += dt;
+      if (pt > 1000) {
         spr.visible = false;
         spr.is_platform = false;
         spr.touched = false;
-        spr.pt = 0;
+        pt = 0;
       }
     } else if (!spr.visible) {
       // vanished, increase the timer and reappear.
-      spr.pt += dt;
-      if (spr.pt > 2000) {
+      pt += dt;
+      if (pt > 2000) {
         spr.visible = true;
         spr.is_platform = true;
-        spr.pt = 0;
+        pt = 0;
       }
     }
   };
@@ -177,19 +219,25 @@ function spawnBlip(x, y, data, ofs) {
 
 function spawnPlatLR(x, y, data, ofs) {
   // Platform moving left and right.
-  var left = data[ofs], right = data[ofs+1];
-  var speed = 2 * (60/1000);
-  var spr = addSprite(blipFS, x, y, blipIdle, false);
+  const left = data[ofs], right = data[ofs+1];
+  const speed = 2 * (60/1000);
+  const spr = addSprite(blipFS, x, y, noAnimate, false);
   spr.is_platform = true;
   spr.touched = false; // for walkMove dead-store.
   pathLeftRight(spr, left, right, speed, false);
   return ofs+2;
 }
 
-function spawnDoor(x, y, data, ofs) {
+function spawnDoor(x, y, data, ofs, code) {
+  const index = code - 56; // first door.
+  if (!doorFS[index]) { log("EDoor"); return ofs; }
+  addSprite(doorFS[index], x, y, noAnimate, false);
   return ofs;
 }
 
-function spawnKey(x, y, data, ofs) {
+function spawnItem(x, y, data, ofs, code) {
+  const index = code - 64; // first item.
+  if (!keyFS[index]) { log("EItem"); return ofs; }
+  addSprite(keyFS[index], x, y, noAnimate, false);
   return ofs;
 }

@@ -32,6 +32,16 @@ DEFS = {
     39: ('Entry', 'E', 7),
     # player start.
     48: ('Belle', 'P', 0),
+    # doors.
+    56: ('Green Door', '', 0),
+    57: ('Red Door', '', 0),
+    58: ('Blue Door', '', 0),
+    59: ('Orange Door', '', 0),
+    # keys.
+    64: ('Green Key', '', 0),
+    65: ('Red Key', '', 0),
+    66: ('Blue Key', '', 0),
+    67: ('Orange Key', '', 0),
 }
 
 def findTile(img, x, y, dx, dy, marker, name):

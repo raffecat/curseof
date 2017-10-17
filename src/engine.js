@@ -1,5 +1,14 @@
+"use strict";
 
-function setAnim(ent, anim) {
+import { Sample, play } from './audio';
+import { keys } from './controls';
+import { movers } from './spawn';
+import { white } from './glr';
+
+var jumpSound = Sample('/assets/jump.wav');
+var painSound = Sample('/assets/ouch.wav');
+
+export function setAnim(ent, anim) {
   // start or restart an animation.
   ent.anim = anim;
   ent.animOfs = 0;       // current animation entry.
@@ -7,14 +16,14 @@ function setAnim(ent, anim) {
   ent.index = anim[0];   // current frame index.
 }
 
-function toAnim(ent, anim) {
+export function toAnim(ent, anim) {
   // change animation without restarting.
   if (ent.anim !== anim) {
     setAnim(ent, anim);
   }
 }
 
-function animateEnts(ents, delta) {
+export function animateEnts(ents, delta) {
   for (var i=0; i<ents.length; i++) {
     var ent = ents[i];
     var dt = delta;
@@ -80,8 +89,8 @@ function hitTestMap(map, L, B, R, T, falling, res) {
           ladder = true;
           if (falling) {
             // treat ladder tiles as solid tiles when falling.
-            var tileT = (y * 32) + 32;
-            if (tileT > hitB && tileT < T) hitB = tileT;
+            var ladderT = (y * 32) + 32;
+            if (ladderT > hitB && ladderT < T) hitB = ladderT;
           }
         }
       }
@@ -123,7 +132,7 @@ var jumpVelocity = 5 * (60/1000);
 var gravity = 0.01 * (60/1000);
 var walkSpeed = 3 * (60/1000);
 var climbSpeed = 3 * (60/1000);
-var maxVelX = 8 * (60/1000);
+// var maxVelX = 8 * (60/1000);
 var maxVelY = 10 * (60/1000);
 var res = {};
 
@@ -131,11 +140,11 @@ var hitW = 16 - 5;    // subtract more than walkSpeed, for holes/ladders.
 var hitW2 = hitW*2-1; // added to left edge for right edge.
 var hitH = 16;        // must go all the way to bottom of feet.
 var hitH2 = 32 - 2;   // leave some head clearance for grabbing ledges.
-var ropeW = 8;        // center must be within 8px of the rope.
+// var ropeW = 8;        // center must be within 8px of the rope.
 
 var RED = { r:0.47, g:0.094, b:0.075, a:0.15 };
 
-function walkMove(actor, dt, map, movers) {
+export function walkMove(actor, dt, map) {
 
   var jump = keys[32]; // Space.
   var left = keys[65]; // A.
@@ -206,7 +215,7 @@ function walkMove(actor, dt, map, movers) {
       moveY = dt * jumpVelocity;
       turnTo = actor.jumpAnim; // overrides everything.
       actor.jumpHeld = 1;
-      Snd_play(jumpSound);
+      play(jumpSound);
     }
     /* } else if (actor.jumpHeld > 0 && actor.jumpHeld < 10) {
       actor.jumpHeld += 1;
@@ -328,10 +337,10 @@ function walkMove(actor, dt, map, movers) {
       actor.health -= 1;
       actor.lastDmg -= 250;
       actor.color = RED;
-      Snd_play(painSound);
+      play(painSound);
     } else {
       if (actor.lastDmg >= 100) { // stop flashing.
-        actor.color = GL_white;
+        actor.color = white;
       }
       actor.lastDmg += dt;
     }
@@ -340,7 +349,7 @@ function walkMove(actor, dt, map, movers) {
       actor.lastDmg += dt;
       if (actor.lastDmg >= 100) { // stop flashing.
         actor.lastDmg = 250; // reset the timer.
-        actor.color = GL_white;
+        actor.color = white;
       }
     }
   }

@@ -1,10 +1,11 @@
+"use strict";
 
-var debug = true;
+export var debug = true;
 
-var log = debug && window.console && console.log && console.log.bind && console.log.bind(console) || function(){};
-var trace = log;
+var c;
 
-var FloatArray = window.Float32Array || window.WebGLFloatArray;
-var Uint16Array = window.Uint16Array;
+export var log = debug && (c=window['console']) && c['log'] && c['log']['bind'] && c['log']['bind'](c) || function(){};
+export var trace = log;
 
-// var hasOwn = Object.prototype.hasOwnProperty;
+export var FloatArray = window.Float32Array || window.WebGLFloatArray;
+export var Uint16Array = window.Uint16Array;

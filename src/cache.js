@@ -1,4 +1,6 @@
-function CacheLoader(loader) {
+"use strict";
+
+export function CacheLoader(loader) {
   var cache = {};
   var loading = 0;
   var queue = [];

@@ -164,7 +164,7 @@ Consider:
 Combine 2-3 enemy motions or player motions to make timing harder.
 Each room is a mini puzzle you must complete, on each traverse.
 - Kill monk, flip switch, climb plarforms.
-- Lead chaser, climb ladder, dodge snake while jumping spikes.
+- Chaser, climb ladder, dodge snake while jumping spikes.
 - Climb ropes across top while avoiding climbers [instead of moving ropes]
 - Fixed hazards and a moving hazard to force jumps or dancing around.
 - Two synchro left-right enemies with horns above.
@@ -176,7 +176,7 @@ Each room is a mini puzzle you must complete, on each traverse.
 - Ocean: quick way jumping over causes damage; slow way to swim down and up.
 
 Enemy mechanics:
-Horizontal and Vertical movers.
+Horizontal and Vertical movers [synchro, same-extents]
 Drop when underneath.
 Bats fly at the player.
 Chase the player on ground [unless have item, while have item]
@@ -186,13 +186,17 @@ Conveyor belt.
 Spikes [timed, switchable]
 Moving platforms [switchable]
 Fish swimming, jellyfish.
+Climbers on ropes.
 
 Environment mechanics:
 Cooking food.
-Put out fire.
+Light or extinguish fire.
+Light the torches.
 Lower/raise water level.
 Burn away.
-Catch water in bowl.
+Fill bucket, catch water in bowl.
+Fire enemies consume water.
+Simon says puzzle.
 
 Climbing mechanics:
 One-way drop.
@@ -238,18 +242,32 @@ Tile flipping (high bits)
 Chunks -> irregular chunks (a template group of chunks)
 Wang tiles -> wang chunks (for map generation)
 
+Item pads (unique id)
+Inventory.
 Keys and doors.
 Trampoline.
-Sprite sheet.
-Dark and light tiles (or light sources?)
-Puzzle.
 Health recovery.
 In/out platform.
 Bat gfx.
 Snake.
 Axe thrower (Horiz)
 Up/down spikes.
-Spear trap (side)
+Spear trap (distance trigger)
 Dart trap.
 Falling brick.
+
+Puzzle.
+Room names.
+Ropes sheet.
 Torch shader.
+Dark and light tiles (or light sources?)
+
+Content-Type: audio/x-wav
+
+rollup:
+* createCommonjsModule
+Colour conversions [xyz,lab,cie,etc]
+Derived conversions (breadth-first-search) is a thing.
+Generated bind functions are a thing.
+ANSI colour codes module.
+Call-site annotations always win e.g. @inline.

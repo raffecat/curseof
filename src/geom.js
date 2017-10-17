@@ -1,9 +1,13 @@
+"use strict";
+
+import { FloatArray, Uint16Array } from './defs';
+import { Geometry } from './glr';
 
 // shared temp objects for updating geometry.
-var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
-var quadInds = new Uint16Array([0,1,2, 1,3,2]);
+export var quadVerts = new FloatArray([ -1,-1,0,0, 1,-1,1,0, -1,1,0,1, 1,1,1,1 ]);
+export var quadInds = new Uint16Array([0,1,2, 1,3,2]);
 
-function updateQuad(geom, L, B, R, T, u0, v0, u1, v1) {
+export function updateQuad(geom, L, B, R, T, u0, v0, u1, v1) {
   quadVerts[0] = L; quadVerts[1] = B;    quadVerts[2] = u0; quadVerts[3] = v1;
   quadVerts[4] = R; quadVerts[5] = B;    quadVerts[6] = u1; quadVerts[7] = v1;
   quadVerts[8] = L; quadVerts[9] = T;    quadVerts[10] = u0; quadVerts[11] = v0;
@@ -11,7 +15,7 @@ function updateQuad(geom, L, B, R, T, u0, v0, u1, v1) {
   geom.update(quadVerts);
 }
 
-function TileSet(image, tileSize) {
+export function TileSet(image, tileSize) {
   // set of tile coords for MapGeom.
   var img_w = image.width, img_h = image.height;
   var ts_w = Math.floor(img_w/tileSize), ts_h = Math.floor(img_h/tileSize);
@@ -25,7 +29,7 @@ function TileSet(image, tileSize) {
   return tileSet;
 }
 
-function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
+export function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
   // generate geometry for all non-empty room tiles.
   // maps start at (0,0) in the bottom-left corner so that hit-testing
   // can map sprite coords directly to (+X,+Y) cells of the map.
@@ -62,7 +66,7 @@ function MapGeom(geom, tileSet, data, ofs, map_w, map_h) {
   return ofs;
 }
 
-function FrameSet(image, tileW, tileH, tile_ofs, num_frames) {
+export function FrameSet(image, tileW, tileH, tile_ofs, num_frames) {
   // generate geometry for each frame in a strip of sprite frames.
   var img_w = image.width, img_h = image.height, w_tiles = Math.floor(img_w/tileW);
   var tx = tile_ofs % w_tiles, ty = Math.floor(tile_ofs/w_tiles);
@@ -93,6 +97,6 @@ function FrameSet(image, tileW, tileH, tile_ofs, num_frames) {
       iofs: (base*2), inum: (iofs-base)
     });
   }
-  var geom = GL_Geometry(verts, inds); // num_frames * 16, num_frames * 6
+  var geom = Geometry(verts, inds); // num_frames * 16, num_frames * 6
   return { frames:frames, tex:image.tex, geom:geom };
 }
