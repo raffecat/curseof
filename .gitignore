@@ -1,6 +1,7 @@
 gen/
 node_modules/
 out/
+upload/
 originals/pgu-0.16
 originals/leveledit.ini
 .DS_Store

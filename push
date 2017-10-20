@@ -1,0 +1,17 @@
+#!/bin/bash
+[ -z "$1" ] && { echo "usage: ./push <server>"; exit 1; }
+echo uploading to $1...
+rm -rf upload
+mkdir -p upload
+cp -rp out upload/web
+cp -rp assets upload/web/assets
+cp -rp gen upload/gen
+cp -rp nginx upload/nginx
+find ./upload -name '.DS_Store' -delete
+cp -p install upload/
+cp -p install-nginx upload/
+cp -p package.json upload/
+cp -p package-lock.json upload/
+cp -p game-server.js upload/
+rsync -avz --no-owner --no-group --delete upload/* $1:curseof/
+echo pushed.

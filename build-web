@@ -1,0 +1,55 @@
+#!/usr/bin/env node
+"use strict";
+
+var fs = require('fs');
+var assert = require('assert');
+var uglifyjs = require('uglify-js');
+var cheerio = require('cheerio');
+var hasOwn = Object.prototype.hasOwnProperty;
+
+var devMode = ~process.argv.indexOf('--dev');
+
+// minify HTML and inline CSS.
+var $ = cheerio.load(read('web/index.html'), devMode?{}:{ignoreWhitespace:true});
+$('style').each(function (i,elem) {
+  assert(elem.children && elem.children[0] && elem.children[0].type == 'text');
+  elem.children[0].data = minCSS(elem.children[0].data);
+});
+
+// minify the loader and insert at the end of the document.
+var loader = minify(wrap(read('web/loader.js')));
+$('body').append('<script>'+loader+'</script>');
+
+// write the static web files.
+fs.writeFileSync('out/index.html', $.html(), 'utf8');
+
+// copy the logo image.
+copy('out/esme.png', 'web/esme.png');
+
+function minify(text) {
+  if (devMode) return text;
+  return uglifyjs.minify(text, {fromString:true}).code; // TODO: outSourceMap
+}
+
+function untrace(text) {
+  if (devMode) return text;
+  return text.replace(/\btrace\([^\)]+\);/g,';');
+}
+
+function concat(files) { return files.map(read).join('\n;'); }
+function read(from) { return fs.readFileSync(from, 'utf8'); }
+function write(to, text) { fs.writeFileSync(to, text, 'utf8'); }
+function copy(to, from) { fs.writeFileSync(to, fs.readFileSync(from)); }
+function norm_ws(text) { return text.replace(/[ \t]+/g,' ').replace(/\n\s*/g,'\n'); }
+function wrap(text) { return '(function(){\n' + text + '\n})()'; }
+
+function minCSS(css) {
+  return css.replace(/\s+{/g, '{')
+            .replace(/{\s+/g, '{')
+            .replace(/\s+}/g, '}')
+            .replace(/}\s+/g, '}')
+            .replace(/:\s+/g, ':')
+            .replace(/;\s+/g, ';')
+            .replace(/,\s+/g, ',')
+            .replace(/;}/g, '}');
+}

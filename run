@@ -1,0 +1,2 @@
+#!/bin/bash
+nohup node game-server.js >server.log 2>errors.log </dev/null &

@@ -1,21 +1,19 @@
 {
-  "name": "starfall-ae",
-  "description": "The space game",
+  "name": "curseof",
+  "description": "The curse of esmerelda emerald",
   "version": "0.0.1",
   "private": true,
   "dependencies": {
-    "uglify-js": "2.2.3",
-    "express": "3.0.6",
-    "cheerio": "0.10.5",
     "socket.io": ">0.9.13"
   },
   "main": "server",
   "devDependencies": {
+    "express": "3.0.6",
+    "cheerio": "0.10.5",
+    "uglify-js": "2.2.3",
     "rollup": "^0.50.0",
     "rollup-plugin-buble": "^0.15.0",
-    "rollup-plugin-closure-compiler-js": "^1.0.5",
     "rollup-plugin-eslint": "^4.0.0",
-    "rollup-plugin-typescript2": "^0.5.2",
     "rollup-plugin-uglify": "^2.0.1"
   }
 }

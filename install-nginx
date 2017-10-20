@@ -1,0 +1,9 @@
+#!/bin/bash -e
+
+# install the curse site
+sudo cp -f /home/mario/curseof/nginx/curseof.conf /etc/nginx/conf.d/curseof.conf
+sudo chmod 0600 /etc/nginx/conf.d/curseof.conf
+sudo chown root:root /etc/nginx/conf.d/curseof.conf
+
+# restart nginx
+sudo nginx -t && sudo service nginx reload
